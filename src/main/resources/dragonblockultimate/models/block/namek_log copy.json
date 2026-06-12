@@ -1,0 +1,7 @@
+{
+    "parent": "block/",
+    "textures": {
+        "end": "dragonblockultimate:block/namek_log_top",
+        "side": "dragonblockultimate:block/namek_log_side"
+    }
+}
