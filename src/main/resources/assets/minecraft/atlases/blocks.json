@@ -1,0 +1,17 @@
+{
+  "replace": false,
+  "sources": [
+    {
+      "type": "minecraft:directory",
+      "source": "block",
+      "prefix": "block/",
+      "namespace": "dragonblockultimate"
+    },
+    {
+      "type": "minecraft:directory",
+      "source": "item",
+      "prefix": "item/",
+      "namespace": "dragonblockultimate"
+    }
+  ]
+}

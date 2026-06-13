@@ -1,7 +1,0 @@
-{
-    "parent": "block/collum",
-    "textures": {
-        "end": "dragonblockultimate:block/namek_log_top",
-        "side": "dragonblockultimate:block/namek_log_side"
-    }
-}
