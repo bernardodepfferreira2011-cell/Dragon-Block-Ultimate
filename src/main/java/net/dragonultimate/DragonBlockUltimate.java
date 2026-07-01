@@ -12,6 +12,9 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import org.slf4j.Logger;
+import net.dragonultimate.component.ModDataComponents;
+import net.dragonultimate.keybind.ModKeybinds;
+
 
 @Mod(DragonBlockUltimate.MOD_ID)
 public class DragonBlockUltimate {
