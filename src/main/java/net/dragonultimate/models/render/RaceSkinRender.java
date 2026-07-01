@@ -10,12 +10,14 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.dragonultimate.DragonBlockUltimate;
 
 public class RaceSkinRender extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 
     private final RaceSkin model;
+    private static long lastDebug = 0L;
 
     public RaceSkinRender(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent, RaceSkin model) {
         super(parent);
@@ -29,8 +31,15 @@ public class RaceSkinRender extends RenderLayer<AbstractClientPlayer, PlayerMode
 
         SaveRaceSkin.RaceData data = SaveRaceSkin.getRaceData(player);
 
-        // Whitelist: só troca a textura quando a raça for exatamente Sayajin.
-        // Qualquer outro valor (default, Humano, etc) mantém a skin normal do Mojang (Alex/Steve).
+        // DEBUG - remover depois: mostra no actionbar a cada 2s o que esse render le
+        long now = System.currentTimeMillis();
+        if (now - lastDebug > 2000) {
+            lastDebug = now;
+            player.displayClientMessage(Component.literal(
+                "[DEBUG render] raceName=" + data.raceName() + " texture=" + data.texturePath()
+            ), true);
+        }
+
         if (!data.raceName().equals("Sayajin")) return;
 
         ResourceLocation texture = ResourceLocation.fromNamespaceAndPath(

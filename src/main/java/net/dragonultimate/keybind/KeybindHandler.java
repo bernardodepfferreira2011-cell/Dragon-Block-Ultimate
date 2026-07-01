@@ -3,6 +3,7 @@ package net.dragonultimate.keybind;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.dragonultimate.screen.MenuInicial;
+import net.dragonultimate.shader.AuraState;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 public class KeybindHandler {
@@ -17,6 +18,14 @@ public class KeybindHandler {
                 mc.player.getInventory(),
                 Component.literal("Menu")
             ));
+        }
+
+        while (ModKeybinds.TOGGLE_AURA.consumeClick()) {
+            AuraState.toggle();
+            mc.player.displayClientMessage(
+                Component.literal(AuraState.isActive() ? "Aura: ATIVADA" : "Aura: DESATIVADA"),
+                true
+            );
         }
     }
 }

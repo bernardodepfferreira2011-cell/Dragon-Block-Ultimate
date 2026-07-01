@@ -13,8 +13,16 @@ public class ModKeybinds {
             "key.categories.dragonblockultimate"
     );
 
+    public static final KeyMapping TOGGLE_AURA = new KeyMapping(
+            "key.dragonblockultimate.toggle_aura",
+            InputConstants.Type.KEYSYM,
+            InputConstants.KEY_G,
+            "key.categories.dragonblockultimate"
+    );
+
     public static void register(RegisterKeyMappingsEvent event) {
         event.register(OPEN_MENU);
+        event.register(TOGGLE_AURA);
     }
-    
+
 }

@@ -32,7 +32,7 @@ public class AuraShaderManager {
             new ShaderInstance(
                 event.getResourceProvider(),
                 ResourceLocation.fromNamespaceAndPath(DragonBlockUltimate.MOD_ID, "aura"),
-                com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR
+                com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR_NORMAL
             ),
             shader -> auraShader = shader
         );

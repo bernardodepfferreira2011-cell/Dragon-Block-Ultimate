@@ -93,6 +93,13 @@ public class MenuInicial extends Screen {
 
     private void salvarRaca() {
         SaveRaceSkin.setRaceData(this.player, racaAtual.getNome(), racaAtual.getTextura());
+
+        // DEBUG - remover depois
+        SaveRaceSkin.RaceData check = SaveRaceSkin.getRaceData(this.player);
+        this.player.displayClientMessage(Component.literal(
+            "[DEBUG salvarRaca] escreveu=" + racaAtual.getNome()
+            + " | releu=" + check.raceName() + " / " + check.texturePath()
+        ), false);
     }
 
     @Override

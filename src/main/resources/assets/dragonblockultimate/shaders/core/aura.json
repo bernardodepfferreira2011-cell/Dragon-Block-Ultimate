@@ -28,7 +28,6 @@
     {"name": "alp1",        "type": "float", "count": 1, "values": [0.9]},
     {"name": "alp2",        "type": "float", "count": 1, "values": [0.3]}
   ],
-  "samplers": [{"name": "Sampler0"}],
   "blend": {
     "func": "add",
     "srcrgb": "srcalpha",

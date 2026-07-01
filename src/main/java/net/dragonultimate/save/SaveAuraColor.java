@@ -18,8 +18,8 @@ public class SaveAuraColor {
     public static final Supplier<AttachmentType<AuraColorData>> AURA_COLOR =
         ATTACHMENT_TYPES.register("aura_color", () ->
             AttachmentType.builder(() -> new AuraColorData(
-                1.0f, 1.0f, 0.3f,  // inner: dourado SSJ
-                1.0f, 0.8f, 0.0f   // outer: laranja
+                1.0f, 1.0f, 1.0f,  // inner: branco (padrão)
+                1.0f, 1.0f, 1.0f   // outer: branco (padrão)
             ))
             .serialize(AuraColorData.CODEC)
             .copyOnDeath()
