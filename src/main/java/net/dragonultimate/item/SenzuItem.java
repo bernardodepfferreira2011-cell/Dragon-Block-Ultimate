@@ -25,8 +25,9 @@ public class SenzuItem extends Item {
 
         if (livingEntity instanceof Player player) {
             player.getFoodData().eat(20, 20.0F);
+            player.removeAllEffects();
+            player.getCooldowns().removeCooldown(this);
         }
-
         return result;
     }
 }
