@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.dragonultimate.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "dragonblockultimate.refmap.json",
+  "client": [
+    "PlayerSkinMixin"
+  ],
+  "mixins": [],
+  "server": []
+}

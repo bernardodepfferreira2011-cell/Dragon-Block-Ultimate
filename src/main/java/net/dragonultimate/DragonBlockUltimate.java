@@ -8,7 +8,7 @@ import net.dragonultimate.component.ModDataComponents;
 import net.dragonultimate.keybind.KeybindHandler;
 import net.dragonultimate.keybind.ModKeybinds;
 import net.dragonultimate.models.RaceSkin;
-import net.dragonultimate.models.render.RaceSkinRender;
+import net.dragonultimate.models.render.AuraRenderLayer;
 import net.dragonultimate.save.SaveAuraColor;
 import net.dragonultimate.save.SaveRaceSkin;
 import net.dragonultimate.shader.AuraShaderManager;
@@ -76,8 +76,9 @@ public class DragonBlockUltimate {
             for (PlayerSkin.Model skin : event.getSkins()) {
                 PlayerRenderer renderer = event.getSkin(skin);
                 if (renderer == null) continue;
-                RaceSkin model = new RaceSkin(event.getEntityModels().bakeLayer(RaceSkin.LAYER));
-                renderer.addLayer(new RaceSkinRender(renderer, model));
+                renderer.addLayer(new AuraRenderLayer(renderer));
+                // RaceSkinRender removido - a troca de textura agora acontece
+                // direto na fonte via PlayerSkinMixin (getSkin()).
             }
         }
     }

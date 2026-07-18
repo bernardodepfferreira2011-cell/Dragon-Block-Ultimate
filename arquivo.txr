@@ -5164,7 +5164,8 @@ import net.dragonultimate.component.ModDataComponents;
 import net.dragonultimate.keybind.KeybindHandler;
 import net.dragonultimate.keybind.ModKeybinds;
 import net.dragonultimate.models.RaceSkin;
-import net.dragonultimate.models.render.RaceSkinRender;
+import net.dragonultimate.models.render.AuraRenderLayer;
+import net.dragonultimate.save.SaveAuraColor;
 import net.dragonultimate.save.SaveRaceSkin;
 import net.dragonultimate.shader.AuraShaderManager;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
@@ -5195,6 +5196,7 @@ public class DragonBlockUltimate {
         ModConfiguredFeatures.register(modEventBus);
         ModDataComponents.register(modEventBus);
         SaveRaceSkin.ATTACHMENT_TYPES.register(modEventBus);
+        SaveAuraColor.ATTACHMENT_TYPES.register(modEventBus);
 
         modEventBus.addListener(ModKeybinds::register);
 
@@ -5230,8 +5232,9 @@ public class DragonBlockUltimate {
             for (PlayerSkin.Model skin : event.getSkins()) {
                 PlayerRenderer renderer = event.getSkin(skin);
                 if (renderer == null) continue;
-                RaceSkin model = new RaceSkin(event.getEntityModels().bakeLayer(RaceSkin.LAYER));
-                renderer.addLayer(new RaceSkinRender(renderer, model));
+                renderer.addLayer(new AuraRenderLayer(renderer));
+                // RaceSkinRender removido - a troca de textura agora acontece
+                // direto na fonte via PlayerSkinMixin (getSkin()).
             }
         }
     }
@@ -5434,17 +5437,18 @@ public class NamekGrassBlock extends Block {
 ===== FILE: src/main/java/net/dragonultimate/block/NamekLeafBlock.java =====
 package net.dragonultimate.block;
 
-import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 
-public class NamekLeafBlock extends Block {
+public class NamekLeafBlock extends LeavesBlock {
     public NamekLeafBlock() {
         super(BlockBehaviour.Properties.of()
                 .mapColor(MapColor.PLANT)
                 .strength(0.3F, 0.3F)
-                .sound(SoundType.GRASS));
+                .sound(SoundType.GRASS)
+                .noOcclusion());
     }
 }
 
@@ -5452,12 +5456,12 @@ public class NamekLeafBlock extends Block {
 ===== FILE: src/main/java/net/dragonultimate/block/NamekLogBlock.java =====
 package net.dragonultimate.block;
 
-import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 
-public class NamekLogBlock extends Block {
+public class NamekLogBlock extends RotatedPillarBlock {
     public NamekLogBlock() {
         super(BlockBehaviour.Properties.of()
                 .mapColor(MapColor.WOOD)
@@ -5613,6 +5617,7 @@ package net.dragonultimate.keybind;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.dragonultimate.screen.MenuInicial;
+import net.dragonultimate.shader.AuraState;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 
 public class KeybindHandler {
@@ -5627,6 +5632,14 @@ public class KeybindHandler {
                 mc.player.getInventory(),
                 Component.literal("Menu")
             ));
+        }
+
+        while (ModKeybinds.TOGGLE_AURA.consumeClick()) {
+            AuraState.toggle();
+            mc.player.displayClientMessage(
+                Component.literal(AuraState.isActive() ? "Aura: ATIVADA" : "Aura: DESATIVADA"),
+                true
+            );
         }
     }
 }
@@ -5648,10 +5661,61 @@ public class ModKeybinds {
             "key.categories.dragonblockultimate"
     );
 
+    public static final KeyMapping TOGGLE_AURA = new KeyMapping(
+            "key.dragonblockultimate.toggle_aura",
+            InputConstants.Type.KEYSYM,
+            InputConstants.KEY_G,
+            "key.categories.dragonblockultimate"
+    );
+
     public static void register(RegisterKeyMappingsEvent event) {
         event.register(OPEN_MENU);
+        event.register(TOGGLE_AURA);
     }
-    
+
+}
+
+
+===== FILE: src/main/java/net/dragonultimate/mixin/PlayerSkinMixin.java =====
+package net.dragonultimate.mixin;
+
+import net.dragonultimate.DragonBlockUltimate;
+import net.dragonultimate.save.SaveRaceSkin;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.resources.ResourceLocation;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(AbstractClientPlayer.class)
+public abstract class PlayerSkinMixin {
+
+    @Inject(method = "getSkin", at = @At("RETURN"), cancellable = true)
+    private void dragonblockultimate$overrideSkin(CallbackInfoReturnable<PlayerSkin> cir) {
+        AbstractClientPlayer self = (AbstractClientPlayer) (Object) this;
+
+        SaveRaceSkin.RaceData data = SaveRaceSkin.getRaceData(self);
+        if (!data.raceName().equals("Sayajin")) return;
+
+        PlayerSkin original = cir.getReturnValue();
+
+        ResourceLocation customTexture = ResourceLocation.fromNamespaceAndPath(
+            DragonBlockUltimate.MOD_ID, data.texturePath()
+        );
+
+        PlayerSkin overridden = new PlayerSkin(
+            customTexture,
+            original.textureUrl(),
+            original.capeTexture(),
+            original.elytraTexture(),
+            original.model(),
+            original.secure()
+        );
+
+        cir.setReturnValue(overridden);
+    }
 }
 
 
@@ -5727,8 +5791,123 @@ public class RaceSkin extends HumanoidModel<Player> {
                 -2.0F, 0.0F, -2.0F, 4.0F, 12.0F, 4.0F,
                 new CubeDeformation(0.0F)),
             PartPose.offset(-1.9F, 12.0F, 0.0F));
+        
+      /* part.addOrReplacrChild("Tail",
+     *      CubeListBuilder.create().texOffs(0, 128).addBox(
+     *         -1.0F, 0.0F, -1.0F, 2.0F, 12.0F, 2.0F,
+     *           new CubeDeformation(0.0F)),
+     *       PartPose.offset(0.0F, 12.0F, 2.0F)
+            ); */
 
         return LayerDefinition.create(mesh, 512, 512);
+    }
+}
+
+
+===== FILE: src/main/java/net/dragonultimate/models/render/AuraRenderLayer.java =====
+package net.dragonultimate.models.render;
+
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+
+import net.dragonultimate.save.SaveAuraColor;
+import net.dragonultimate.shader.AuraRenderTypes;
+import net.dragonultimate.shader.AuraShaderManager;
+import net.dragonultimate.shader.AuraState;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+
+public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
+
+    private static final int RADIAL_SEGMENTS = 32;
+    private static final int VERTICAL_RINGS = 12;
+    private static long lastDebug = 0L;
+    private static int vertCount = 0;
+
+    private static final RenderType AURA_RENDER_TYPE =
+        AuraRenderTypes.aura(AuraRenderTypes.AuraBlendMode.TRANSLUCENT);
+
+    public AuraRenderLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
+        super(parent);
+    }
+
+    @Override
+    public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
+                        AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
+                        float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+
+        boolean active = AuraState.isActive();
+        boolean shaderOk = AuraShaderManager.getShader() != null;
+
+        if (!active) return;
+        if (!shaderOk) return;
+
+        SaveAuraColor.AuraColorData cor = SaveAuraColor.getAuraColor(player);
+        VertexConsumer consumer = buffer.getBuffer(AURA_RENDER_TYPE);
+        Matrix4f mat = poseStack.last().pose();
+
+        vertCount = 0;
+
+        AuraShaderManager.setUniforms(1.0f, cor.outerArray(), cor.outerArray(), 0.55f, 0.15f, 3.0f);
+        addFlowingAuraSpikes(consumer, mat, 1.0f, 2.35f, 0.55f, ageInTicks + partialTick);
+
+        AuraShaderManager.setUniforms(1.0f, cor.innerArray(), cor.innerArray(), 0.9f, 0.3f, 2.0f);
+        addFlowingAuraSpikes(consumer, mat, 0.72f, 2.15f, 0.42f, ageInTicks + partialTick + 0.6f);
+    }
+
+    /**
+     * Gera uma casca espiralada e irregular em torno do corpo do jogador,
+     * parecida com uma aura de Dragon Ball, em vez de um único cone.
+     */
+    private void addFlowingAuraSpikes(VertexConsumer consumer, Matrix4f mat, float baseRadius, float height, float verticalOffset, float time) {
+        int spikeCount = 18;
+        float speed = 1.65f;
+
+        for (int i = 0; i < spikeCount; i++) {
+            float phase = (time * speed + i * 0.11f) % 1.0f;
+            if (phase < 0.0f) phase += 1.0f;
+
+            float pulse = 0.0f;
+            if (phase < 0.5f) {
+                pulse = phase / 0.5f;
+            } else {
+                pulse = (1.0f - phase) / 0.5f;
+            }
+
+            float angle = (float) (i * 2.0 * Math.PI / spikeCount);
+            float nextAngle = (float) ((i + 1) * 2.0 * Math.PI / spikeCount);
+            float midAngle = (angle + nextAngle) * 0.5f;
+
+            float orbitRadius = baseRadius * (0.45f + 0.15f * pulse);
+            float tipRadius = baseRadius * (0.7f + 0.25f * pulse);
+            float lift = verticalOffset + height * 0.92f * phase;
+            float tipHeight = lift + height * 0.16f * pulse;
+            float baseHeight = lift - height * 0.03f * (1.0f + pulse);
+
+            float sway = (float) (Math.sin(time * 0.35f + i * 0.8f) * 0.06f + Math.cos(midAngle * 3.0f + time * 0.2f) * 0.03f);
+            float x0 = (float) (Math.cos(angle) * orbitRadius + sway);
+            float z0 = (float) (Math.sin(angle) * orbitRadius - sway);
+            float x1 = (float) (Math.cos(nextAngle) * orbitRadius - sway);
+            float z1 = (float) (Math.sin(nextAngle) * orbitRadius + sway);
+            float xt = (float) (Math.cos(midAngle) * tipRadius);
+            float zt = (float) (Math.sin(midAngle) * tipRadius);
+
+            vert(consumer, mat, x0, baseHeight, z0);
+            vert(consumer, mat, x1, baseHeight, z1);
+            vert(consumer, mat, xt, tipHeight, zt);
+
+            vertCount += 3;
+        }
+    }
+
+    private static void vert(VertexConsumer consumer, Matrix4f mat, float x, float y, float z) {
+        consumer.addVertex(mat, x, y, z).setColor(1f, 1f, 1f, 1f);
     }
 }
 
@@ -5746,12 +5925,14 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.dragonultimate.DragonBlockUltimate;
 
 public class RaceSkinRender extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 
     private final RaceSkin model;
+    private static long lastDebug = 0L;
 
     public RaceSkinRender(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent, RaceSkin model) {
         super(parent);
@@ -5765,8 +5946,16 @@ public class RaceSkinRender extends RenderLayer<AbstractClientPlayer, PlayerMode
 
         SaveRaceSkin.RaceData data = SaveRaceSkin.getRaceData(player);
 
-        // Só renderiza se não for Humano
-        if (data.raceName().equals("default") || data.raceName().equals("Humano")) return;
+        // DEBUG - remover depois: mostra no actionbar a cada 2s o que esse render le
+        long now = System.currentTimeMillis();
+        if (now - lastDebug > 2000) {
+            lastDebug = now;
+            player.displayClientMessage(Component.literal(
+                "[DEBUG render] raceName=" + data.raceName() + " texture=" + data.texturePath()
+            ), true);
+        }
+
+        if (!data.raceName().equals("Sayajin")) return;
 
         ResourceLocation texture = ResourceLocation.fromNamespaceAndPath(
             DragonBlockUltimate.MOD_ID, data.texturePath()
@@ -5808,8 +5997,8 @@ public class SaveAuraColor {
     public static final Supplier<AttachmentType<AuraColorData>> AURA_COLOR =
         ATTACHMENT_TYPES.register("aura_color", () ->
             AttachmentType.builder(() -> new AuraColorData(
-                1.0f, 1.0f, 0.3f,  // inner: dourado SSJ
-                1.0f, 0.8f, 0.0f   // outer: laranja
+                1.0f, 1.0f, 1.0f,  // inner: branco (padrão)
+                1.0f, 1.0f, 1.0f   // outer: branco (padrão)
             ))
             .serialize(AuraColorData.CODEC)
             .copyOnDeath()
@@ -6320,6 +6509,13 @@ public class MenuInicial extends Screen {
 
     private void salvarRaca() {
         SaveRaceSkin.setRaceData(this.player, racaAtual.getNome(), racaAtual.getTextura());
+
+        // DEBUG - remover depois
+        SaveRaceSkin.RaceData check = SaveRaceSkin.getRaceData(this.player);
+        this.player.displayClientMessage(Component.literal(
+            "[DEBUG salvarRaca] escreveu=" + racaAtual.getNome()
+            + " | releu=" + check.raceName() + " / " + check.texturePath()
+        ), false);
     }
 
     @Override
@@ -6387,6 +6583,78 @@ public class MenuInicial extends Screen {
 }
 
 
+===== FILE: src/main/java/net/dragonultimate/shader/AuraRenderTypes.java =====
+package net.dragonultimate.shader;
+
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.Util;
+import net.minecraft.client.renderer.RenderStateShard;
+import net.minecraft.client.renderer.RenderType;
+
+import java.util.function.Function;
+
+/**
+ * RenderTypes customizados pra aura, usando o shader gerenciado pela AuraShaderManager.
+ *
+ * IMPORTANTE: usa NO_DEPTH_TEST em vez do depth-test padrão. Com depth-test normal,
+ * a aura compete no z-buffer contra o próprio corpo do jogador (mesmo teste de
+ * profundidade) - isso causa exatamente o sintoma de "só aparece de certos ângulos,
+ * some de perto/de outros ângulos". NO_DEPTH_TEST faz a aura sempre desenhar por
+ * cima, como um efeito de glow, sem competir com a geometria do corpo.
+ */
+public class AuraRenderTypes extends RenderType {
+
+    private AuraRenderTypes(String s, VertexFormat v, VertexFormat.Mode m, int i, boolean b, boolean b2, Runnable r, Runnable r2) {
+        super(s, v, m, i, b, b2, r, r2);
+        throw new IllegalStateException("Classe não deve ser instanciada");
+    }
+
+    private static final RenderStateShard.ShaderStateShard AURA_SHADER_STATE =
+        new RenderStateShard.ShaderStateShard(AuraShaderManager::getShader);
+
+    public enum AuraBlendMode {
+        ADDITIVE,
+        TRANSLUCENT
+    }
+
+    private static final Function<AuraBlendMode, RenderType> AURA_TYPES =
+        Util.memoize(AuraRenderTypes::buildAuraType);
+
+    public static RenderType aura(AuraBlendMode mode) {
+        return AURA_TYPES.apply(mode);
+    }
+
+    private static RenderType buildAuraType(AuraBlendMode mode) {
+        RenderStateShard.TransparencyStateShard transparency =
+            mode == AuraBlendMode.ADDITIVE
+                ? RenderType.ADDITIVE_TRANSPARENCY
+                : RenderType.TRANSLUCENT_TRANSPARENCY;
+
+        RenderType.CompositeState state = RenderType.CompositeState.builder()
+            .setShaderState(AURA_SHADER_STATE)
+            .setTransparencyState(transparency)
+            .setCullState(RenderType.NO_CULL)
+            .setDepthTestState(RenderType.NO_DEPTH_TEST)
+            .setWriteMaskState(RenderType.COLOR_WRITE)
+            .setLightmapState(RenderType.NO_LIGHTMAP)
+            .setOverlayState(RenderType.NO_OVERLAY)
+            .createCompositeState(false);
+
+        String name = "dbi_aura_" + mode.name().toLowerCase();
+        return RenderType.create(
+            name,
+            DefaultVertexFormat.POSITION_COLOR,
+            VertexFormat.Mode.TRIANGLES,
+            256,
+            false,
+            false,
+            state
+        );
+    }
+}
+
+
 ===== FILE: src/main/java/net/dragonultimate/shader/AuraShaderManager.java =====
 package net.dragonultimate.shader;
 
@@ -6394,10 +6662,6 @@ import net.dragonultimate.DragonBlockUltimate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 
 import javax.annotation.Nullable;
@@ -6408,24 +6672,23 @@ public class AuraShaderManager {
     @Nullable
     private static ShaderInstance auraShader;
 
-    public static final float[][] TRANSFORM_COLORS = {
-        {1.0f, 1.0f, 0.6f,  0.9f, 0.7f, 0.1f},  // Base
-        {1.0f, 1.0f, 0.3f,  1.0f, 0.9f, 0.0f},  // SSJ
-        {1.0f, 1.0f, 0.1f,  1.0f, 0.8f, 0.0f},  // SSJ2
-        {1.0f, 0.95f,0.0f,  1.0f, 0.7f, 0.0f},  // SSJ3
-        {0.8f, 0.3f, 0.0f,  0.6f, 0.1f, 0.0f},  // SSJ4
-        {0.2f, 0.5f, 1.0f,  0.0f, 0.3f, 0.9f},  // SSJBlue
-    };
-
     public static void onRegisterShaders(RegisterShadersEvent event) throws IOException {
-        event.registerShader(
-            new ShaderInstance(
-                event.getResourceProvider(),
-                ResourceLocation.fromNamespaceAndPath(DragonBlockUltimate.MOD_ID, "aura"),
-                com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR
-            ),
-            shader -> auraShader = shader
-        );
+        try {
+            event.registerShader(
+                new ShaderInstance(
+                    event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(DragonBlockUltimate.MOD_ID, "aura"),
+                    com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR
+                ),
+                shader -> {
+                    auraShader = shader;
+                    DragonBlockUltimate.LOGGER.info("[DragonBlockUltimate] Shader 'aura' registrado e compilado com sucesso.");
+                }
+            );
+        } catch (Exception e) {
+            DragonBlockUltimate.LOGGER.error("[DragonBlockUltimate] FALHA ao compilar o shader 'aura':", e);
+            throw e;
+        }
     }
 
     @Nullable
@@ -6433,51 +6696,21 @@ public class AuraShaderManager {
         return auraShader;
     }
 
-    public static void updateUniforms(
-            Player player,
-            float power,
-            float kiCharge,
-            float attackState,
-            int transIndex,
-            float auravar,
-            int layerIndex,
-            float[] customInner,
-            float[] customOuter
-    ) {
+    public static void setUniforms(float auravar, float[] colorInner, float[] colorOuter,
+                                    float alp1, float alp2, float fresnelPower) {
         if (auraShader == null) return;
 
         float time = (Minecraft.getInstance().level != null)
             ? Minecraft.getInstance().level.getGameTime() / 20.0f : 0f;
 
-        int t = Math.max(0, Math.min(transIndex, TRANSFORM_COLORS.length - 1));
-        float[] tColor = TRANSFORM_COLORS[t];
-
-        // Se tiver cor customizada, usa ela
-        float[] inner = (customInner != null) ? customInner : new float[]{tColor[0], tColor[1], tColor[2]};
-        float[] outer = (customOuter != null) ? customOuter : new float[]{tColor[3], tColor[4], tColor[5]};
-
-        float alp1 = layerIndex == 0 ? 0.95f : 0.55f;
-        float alp2 = layerIndex == 0 ? 0.30f : 0.15f;
-
         safeSet(auraShader, "time", time);
-        safeSet(auraShader, "power", power);
-        safeSet(auraShader, "kiCharge", kiCharge);
-        safeSet(auraShader, "attackState", attackState);
-        safeSet(auraShader, "transformation", (float) transIndex);
         safeSet(auraShader, "auravar", auravar);
-        safeSet(auraShader, "layer", (float) layerIndex);
-        safeSet(auraShader, "divis", 1.0f);
-
-        safeSet3(auraShader, "colorInner",      inner[0], inner[1], inner[2]);
-        safeSet3(auraShader, "colorOuter",      outer[0], outer[1], outer[2]);
-        safeSet3(auraShader, "colorCore",       1.0f, 1.0f, 1.0f);
-        safeSet3(auraShader, "transformColor1", inner[0], inner[1], inner[2]);
-        safeSet3(auraShader, "transformColor2", outer[0], outer[1], outer[2]);
-
+        safeSet3(auraShader, "color1", colorInner[0], colorInner[1], colorInner[2]);
+        safeSet3(auraShader, "color2", colorOuter[0], colorOuter[1], colorOuter[2]);
         safeSet(auraShader, "alp1", alp1);
         safeSet(auraShader, "alp2", alp2);
-
-        auraShader.apply();
+        safeSet(auraShader, "power", fresnelPower);
+        safeSet(auraShader, "divis", 1.0f);
     }
 
     private static void safeSet(ShaderInstance s, String name, float val) {
@@ -6488,6 +6721,29 @@ public class AuraShaderManager {
     private static void safeSet3(ShaderInstance s, String name, float r, float g, float b) {
         var u = s.getUniform(name);
         if (u != null) u.set(r, g, b);
+    }
+}
+
+
+===== FILE: src/main/java/net/dragonultimate/shader/AuraState.java =====
+package net.dragonultimate.shader;
+
+public class AuraState {
+
+    private static boolean active = false;
+
+    private AuraState() {}
+
+    public static boolean isActive() {
+        return active;
+    }
+
+    public static void toggle() {
+        active = !active;
+    }
+
+    public static void set(boolean value) {
+        active = value;
     }
 }
 
@@ -6619,6 +6875,88 @@ public class ModTreeGrowers {
     }
 }
 
+
+===== FILE: src/main/resources/assets/dragonblockultimate/models/entity/arconsian.geo.json =====
+{
+	"format_version": "1.12.0",
+	"minecraft:geometry": [
+		{
+			"description": {
+				"identifier": "geometry.unknown",
+				"texture_width": 64,
+				"texture_height": 64,
+				"visible_bounds_width": 4,
+				"visible_bounds_height": 4,
+				"visible_bounds_offset": [0, 1, 0]
+			},
+			"bones": [
+				{
+					"name": "bb_main",
+					"pivot": [0, 0, 0],
+					"cubes": [
+						{"origin": [-1, 12, 2], "size": [2, 2, 16], "uv": [0, 0]}
+					]
+				},
+				{
+					"name": "Waist",
+					"pivot": [0, 12, 0]
+				},
+				{
+					"name": "Head",
+					"parent": "Waist",
+					"pivot": [0, 24, 0],
+					"cubes": [
+						{"origin": [-4, 24, -4], "size": [8, 8, 8], "uv": [0, 18]},
+						{"origin": [-4, 24, -4], "size": [8, 8, 8], "inflate": 0.5, "uv": [32, 0]}
+					]
+				},
+				{
+					"name": "Body",
+					"parent": "Waist",
+					"pivot": [0, 24, 0],
+					"cubes": [
+						{"origin": [-4, 12, -2], "size": [8, 12, 4], "uv": [32, 18]},
+						{"origin": [-4, 12, -2], "size": [8, 12, 4], "inflate": 0.25, "uv": [16, 32]}
+					]
+				},
+				{
+					"name": "Right Arm",
+					"parent": "Waist",
+					"pivot": [-5, 22, 0],
+					"cubes": [
+						{"origin": [-8, 12, -2], "size": [4, 12, 4], "uv": [0, 34]},
+						{"origin": [-8, 12, -2], "size": [4, 12, 4], "inflate": 0.25, "uv": [40, 32]}
+					]
+				},
+				{
+					"name": "Left Arm",
+					"parent": "Waist",
+					"pivot": [5, 22, 0],
+					"cubes": [
+						{"origin": [4, 12, -2], "size": [4, 12, 4], "uv": [16, 34]},
+						{"origin": [4, 12, -2], "size": [4, 12, 4], "inflate": 0.25, "uv": [48, 48]}
+					]
+				},
+				{
+					"name": "Right Leg",
+					"pivot": [-1.9, 12, 0],
+					"cubes": [
+						{"origin": [-3.9, 0, -2], "size": [4, 12, 4], "uv": [32, 34]},
+						{"origin": [-3.9, 0, -2], "size": [4, 12, 4], "inflate": 0.25, "uv": [0, 32]}
+					]
+				},
+				{
+					"name": "Left Leg",
+					"pivot": [1.9, 12, 0],
+					"cubes": [
+						{"origin": [-0.1, 0, -2], "size": [4, 12, 4], "uv": [36, 0]},
+						{"origin": [-0.1, 0, -2], "size": [4, 12, 4], "inflate": 0.25, "uv": [0, 48]}
+					]
+				}
+			]
+		}
+	]
+}
 
 ===== FILE: src/main/resources/assets/dragonblockultimate/models/fly/fly.animation.json =====
 {
@@ -8193,154 +8531,32 @@ public class ModTreeGrowers {
 
 in vec3 vNormalWorld;
 in vec3 vViewDir;
-in vec3 vWorldPos;
-in float vLayer;
-in float vNoiseValue;
-in float vFalloff;
-in float vAngular;
 
-out vec4 fragData[2];
-
-// Cores base por camada
-uniform vec3 colorInner;    // cor central (mais brilhante)
-uniform vec3 colorOuter;    // cor da borda
-uniform vec3 colorCore;     // cor do núcleo quase branco
-
-// Cores por transformação (interpoladas em Java)
-uniform vec3 transformColor1; // cor primária da forma
-uniform vec3 transformColor2; // cor secundária / borda
-
-// Parâmetros de intensidade
-uniform float alp1;          // alpha inner
-uniform float alp2;          // alpha outer
-uniform float power;         // power level 0-1
-uniform float kiCharge;      // carregando ki
-uniform float attackState;   // estado de ataque
-uniform float transformation; // 0=base ... 5=blue
-uniform float time;
+uniform vec3 color1;
+uniform vec3 color2;
+uniform float alp1;
+uniform float alp2;
+uniform float power;
 uniform float divis;
 
-// =============================================
-// FUNÇÕES UTILITÁRIAS
-// =============================================
-float hash21(vec2 p) {
-    p = fract(p * vec2(234.34, 435.345));
-    p += dot(p, p + 34.23);
-    return fract(p.x * p.y);
-}
-
-// Noise 2D simples para distorção do frag
-float noise2D(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(
-        mix(hash21(i), hash21(i + vec2(1,0)), u.x),
-        mix(hash21(i + vec2(0,1)), hash21(i + vec2(1,1)), u.x),
-        u.y
-    );
-}
+out vec4 fragColor;
 
 void main() {
     vec3 N = normalize(vNormalWorld);
     vec3 V = normalize(vViewDir);
 
-    // =========================================
-    // FACING RATIO (fresnel / rim)
-    // =========================================
-    float facingRaw = dot(V, N);
-    if (facingRaw < 0.0) N = -N;
-    float facingAbs  = abs(dot(V, N));
-    float edgeFactor = 1.0 - facingAbs;
+    // facingAbs: 1.0 = olhando direto pra normal (centro da forma),
+    // 0.0 = de raspão (borda/silhueta). Sem o "if (facingRaw < 0) alpha = 0.01"
+    // problemático de antes - aqui sempre usamos o valor absoluto.
+    float facingAbs = abs(dot(V, N));
+    float edgeFactor = clamp(1.0 - facingAbs, 0.0, 1.0);
+    edgeFactor = pow(edgeFactor, max(power, 0.1)) / max(divis, 0.01);
+    float blendFactor = clamp(edgeFactor, 0.0, 1.0);
 
-    // Fresnel rim mais forte nas bordas
-    float rimPower = mix(2.0, 4.0 + power * 3.0, vLayer);
-    float rim = pow(edgeFactor, rimPower) / divis;
-    float blendFactor = clamp(rim, 0.0, 1.0);
-
-    // =========================================
-    // PULSAÇÃO TEMPORAL
-    // =========================================
-    float slowPulse  = sin(time * 3.0) * 0.5 + 0.5;             // pulsação lenta
-    float fastPulse  = sin(time * 12.0 * (1.0 + power)) * 0.5 + 0.5; // pulsação rápida
-    float chargePulse= sin(time * 20.0) * 0.5 + 0.5;            // ao carregar ki
-    float flicker    = 1.0 + sin(time * 50.0) * 0.03 * power;   // micro flicker
-
-    // Combina pulsações
-    float pulse = mix(slowPulse, fastPulse, power * 0.6);
-    pulse = mix(pulse, chargePulse, kiCharge * 0.7);
-    pulse *= flicker;
-
-    // =========================================
-    // DISTORÇÃO DE ENERGIA (heat distortion simulada)
-    // =========================================
-    vec2 distCoord = vWorldPos.xy * 2.0 + vec2(time * 0.5, time * 0.3);
-    float distortion = noise2D(distCoord) * 0.08 * power;
-    blendFactor = clamp(blendFactor + distortion, 0.0, 1.0);
-
-    // =========================================
-    // COR DINÂMICA POR TRANSFORMAÇÃO
-    // Interpolação entre cores base e cores da forma
-    // =========================================
-    float transBlend = clamp(transformation / 5.0, 0.0, 1.0);
-    vec3 dynInner = mix(colorInner, transformColor1, transBlend);
-    vec3 dynOuter = mix(colorOuter, transformColor2, transBlend);
-
-    // Camada interna fica mais "branca/quente" no núcleo
-    float coreBlend = (1.0 - blendFactor) * (1.0 - vLayer);
-    vec3 finalColor = mix(dynOuter, dynInner, blendFactor);
-    finalColor = mix(finalColor, colorCore, coreBlend * 0.6);
-
-    // =========================================
-    // NOISE PROCEDURAL QUEBRA A FORMA LISA
-    // =========================================
-    // Adiciona variação de cor pelo noise do vertex
-    float noiseMod = vNoiseValue * 0.3 * power;
-    finalColor = mix(finalColor, dynInner, noiseMod);
-
-    // =========================================
-    // BRILHO EMISSIVO FORTE
-    // =========================================
-    float emissiveBoost = 1.0 + power * 3.0 + kiCharge * 4.0 + attackState * 2.0;
-    emissiveBoost *= pulse;
-    finalColor *= emissiveBoost;
-
-    // =========================================
-    // ALPHA DINÂMICO
-    // =========================================
+    vec3 color = mix(color1, color2, blendFactor);
     float alpha = mix(alp1, alp2, blendFactor);
 
-    // Reduz alpha no interior (face traseira)
-    if (facingRaw < 0.0) alpha = 0.01;
-
-    // Boost de alpha ao carregar ki ou atacar
-    alpha *= mix(1.0, 1.5, kiCharge);
-    alpha *= mix(1.0, 1.3, attackState);
-    alpha *= pulse * 0.7 + 0.3; // não zera nunca
-
-    // Fade pelo falloff vertical
-    alpha *= mix(1.0, vFalloff, 0.3);
-
-    alpha = clamp(alpha, 0.0, 1.0);
-
-    // =========================================
-    // RIM LIGHT: contorno destacado
-    // =========================================
-    float rimLight = pow(1.0 - facingAbs, 5.0) * (0.5 + power);
-    finalColor += dynOuter * rimLight * pulse;
-
-    // =========================================
-    // BLOOM PASS (fragData[1])
-    // =========================================
-    // Bloom mais forte no núcleo, fade nas bordas
-    float bloomIntensity = (1.0 - blendFactor) * power * emissiveBoost;
-    bloomIntensity += rimLight * 0.5;
-    bloomIntensity = clamp(bloomIntensity, 0.0, 1.0);
-
-    vec3 bloomColor = mix(dynInner, colorCore, 0.7) * bloomIntensity;
-
-    fragData[0] = vec4(finalColor, alpha);
-    fragData[1] = vec4(bloomColor, alpha * bloomIntensity);
+    fragColor = vec4(color, clamp(alpha, 0.0, 1.0));
 }
 
 
@@ -8348,38 +8564,28 @@ void main() {
 {
   "vertex": "dragonblockultimate:aura",
   "fragment": "dragonblockultimate:aura",
-  "attributes": ["Position", "Color", "Normal"],
+  "attributes": ["Position", "Color"],
   "uniforms": [
-    {"name": "modelMatrix",  "type": "matrix4x4", "count": 16,
+    {"name": "ModelViewMat", "type": "matrix4x4", "count": 16,
      "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
-    {"name": "ProjMat",      "type": "matrix4x4", "count": 16,
+    {"name": "ProjMat", "type": "matrix4x4", "count": 16,
      "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
-    {"name": "normalMatrix", "type": "matrix3x3", "count": 9,
-     "values": [1,0,0, 0,1,0, 0,0,1]},
 
-    {"name": "time",          "type": "float", "count": 1,  "values": [0.0]},
-    {"name": "power",         "type": "float", "count": 1,  "values": [0.5]},
-    {"name": "kiCharge",      "type": "float", "count": 1,  "values": [0.0]},
-    {"name": "attackState",   "type": "float", "count": 1,  "values": [0.0]},
-    {"name": "transformation","type": "float", "count": 1,  "values": [0.0]},
-    {"name": "auravar",       "type": "float", "count": 1,  "values": [1.0]},
-    {"name": "layer",         "type": "float", "count": 1,  "values": [0.0]},
-    {"name": "divis",         "type": "float", "count": 1,  "values": [1.0]},
+    {"name": "time",    "type": "float", "count": 1, "values": [0.0]},
+    {"name": "auravar", "type": "float", "count": 1, "values": [1.0]},
 
-    {"name": "colorInner",      "type": "float", "count": 3, "values": [1.0, 1.0, 0.6]},
-    {"name": "colorOuter",      "type": "float", "count": 3, "values": [0.8, 0.6, 0.0]},
-    {"name": "colorCore",       "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
-    {"name": "transformColor1", "type": "float", "count": 3, "values": [1.0, 1.0, 0.6]},
-    {"name": "transformColor2", "type": "float", "count": 3, "values": [0.8, 0.6, 0.0]},
-
-    {"name": "alp1",        "type": "float", "count": 1, "values": [0.9]},
-    {"name": "alp2",        "type": "float", "count": 1, "values": [0.3]}
+    {"name": "color1", "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
+    {"name": "color2", "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
+    {"name": "alp1",   "type": "float", "count": 1, "values": [0.9]},
+    {"name": "alp2",   "type": "float", "count": 1, "values": [0.25]},
+    {"name": "power",  "type": "float", "count": 1, "values": [2.5]},
+    {"name": "divis",  "type": "float", "count": 1, "values": [1.0]}
   ],
-  "samplers": [{"name": "Sampler0"}],
+  "samplers": [],
   "blend": {
     "func": "add",
     "srcrgb": "srcalpha",
-    "dstrgb": "one"
+    "dstrgb": "1-srcalpha"
   },
   "cull": false
 }
@@ -8390,37 +8596,19 @@ void main() {
 
 in vec3 Position;
 in vec4 Color;
-in vec3 Normal;
 
-// Outputs para o fragment shader
 out vec3 vNormalWorld;
 out vec3 vViewDir;
-out vec3 vWorldPos;
-out float vLayer;         // qual camada (inner=0, outer=1)
-out float vNoiseValue;    // noise para usar no frag
-out float vFalloff;       // fade vertical
-out float vAngular;       // forma angular da aura
 
-// Matrizes
-uniform mat4 modelMatrix;
+uniform mat4 ModelViewMat;
 uniform mat4 ProjMat;
-uniform mat3 normalMatrix;
 
-// Tempo e poder
 uniform float time;
-uniform float power;       // ki power normalizado 0.0 - 1.0
-uniform float kiCharge;    // 0.0 = normal, 1.0 = carregando ki
-uniform float attackState; // 0.0 = idle, 1.0 = atacando
-uniform float transformation; // 0=base 1=SSJ 2=SSJ2 3=SSJ3 4=SSJ4 5=SSJBlue
-uniform float auravar;     // escala da aura 0-1 (easing)
-uniform float layer;       // 0.0 = camada interna, 1.0 = camada externa
+uniform float auravar;
 
-// =============================================
-// SIMPLEX NOISE 3D
-// =============================================
-vec3 mod289v3(vec3 x) { return x - floor(x * (1.0/289.0)) * 289.0; }
-vec4 mod289v4(vec4 x) { return x - floor(x * (1.0/289.0)) * 289.0; }
-vec4 permute(vec4 x) { return mod289v4(((x*34.0)+1.0)*x); }
+vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
 
 float snoise(vec3 v) {
     const vec2 C = vec2(1.0/6.0, 1.0/3.0);
@@ -8434,11 +8622,11 @@ float snoise(vec3 v) {
     vec3 x1 = x0 - i1 + C.xxx;
     vec3 x2 = x0 - i2 + C.yyy;
     vec3 x3 = x0 - D.yyy;
-    i = mod289v3(i);
+    i = mod289(i);
     vec4 p = permute(permute(permute(
-        i.z + vec4(0.0, i1.z, i2.z, 1.0))
-        + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-        + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+               i.z + vec4(0.0, i1.z, i2.z, 1.0))
+             + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+             + i.x + vec4(0.0, i1.x, i2.x, 1.0));
     float n_ = 0.142857142857;
     vec3 ns = D.wyz - D.xyz * n_;
     vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
@@ -8458,122 +8646,47 @@ float snoise(vec3 v) {
     vec3 p1 = vec3(a0.zw, h.y);
     vec3 p2 = vec3(a1.xy, h.z);
     vec3 p3 = vec3(a1.zw, h.w);
-    vec4 norm = inversesqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+    vec4 norm = inversesqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
     p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-    vec4 m = max(0.6 - vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)), 0.0);
+    vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
     m = m * m;
-    return 42.0 * dot(m*m, vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
-}
-
-// FBM - Fractal Brownian Motion para ruído em camadas
-float fbm(vec3 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    float frequency = 1.0;
-    for (int i = 0; i < 4; i++) {
-        value += amplitude * snoise(p * frequency);
-        frequency *= 2.0;
-        amplitude *= 0.5;
-    }
-    return value;
+    return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
 }
 
 float triangleWave(float x) {
-    return abs(fract(x * 0.5) * 2.0 - 1.0);
+    return abs(fract(x) * 2.0 - 1.0);
 }
 
 void main() {
     vec4 pos = vec4(Position, 1.0);
 
-    // =========================================
-    // PARÂMETROS POR CAMADA
-    // =========================================
-    float isOuter = layer; // 0=inner 1=outer
-    float speedMult = mix(5.5, 3.5, isOuter);       // outer mais lento
-    float ampMult   = mix(0.7, 1.4, isOuter);        // outer mais largo
-    float freqY     = mix(2.0, 1.2, isOuter);
-    float scaleMult = mix(1.0, 1.35, isOuter);       // outer maior
+    float freqY = 2.0;
+    float speed = 5.5;
+    float amp = 0.6;
 
-    // =========================================
-    // POWER MODIFICA VELOCIDADE E AMPLITUDE
-    // =========================================
-    float powerBoost = 1.0 + power * 2.5;
-    float chargeBoost = 1.0 + kiCharge * 3.0; // ki charge expande muito
-    float attackBoost = 1.0 + attackState * 1.5;
-
-    // =========================================
-    // NOISE MULTICAMADA PARA ENERGIA VIVA
-    // =========================================
-    // Camada 1: ondas verticais + angular (como original mas com FBM)
     float angle = atan(Position.z, Position.x);
-    float angularWave = triangleWave(angle * 2.0 + time * 0.3);
-    float vertWave = triangleWave((Position.y * freqY) - (time * speedMult * powerBoost));
+    float angularWave = triangleWave(angle * 5.0 / 6.2831853 + time * 0.1);
+    float layerWave = triangleWave((Position.y * freqY) - (time * speed));
 
-    // Camada 2: noise 3D lento para "quebrar" a forma
-    vec3 noiseCoord1 = Position * 3.0;
-    noiseCoord1.y -= time * 1.2;
-    float noise1 = snoise(noiseCoord1) * 0.5 + 0.5;
+    vec3 noiseCoord = Position * 4.0;
+    noiseCoord.y -= time * 1.5;
+    float n = snoise(noiseCoord) * 0.5 + 0.5;
 
-    // Camada 3: FBM rápido para energia frenética em SSJ
-    vec3 noiseCoord2 = Position * 6.0;
-    noiseCoord2.y -= time * 2.5;
-    float noise2 = fbm(noiseCoord2) * 0.5 + 0.5;
+    float totalWave = layerWave * angularWave * n;
+    float falloff = smoothstep(-1.8, 0.0, Position.y) * (1.0 - smoothstep(0.0, 2.3, Position.y));
 
-    // Mistura de camadas de noise baseado em transformação
-    float noiseBlend = clamp(transformation / 4.0, 0.0, 1.0);
-    float combinedNoise = mix(noise1, mix(noise1, noise2, noiseBlend), 0.6);
+    vec3 dir = normalize(vec3(pos.x, 0.0, pos.z));
+    vec3 upwardDir = vec3(0.0, 1.0, 0.0);
+    vec3 finalDir = normalize(mix(dir, upwardDir, 0.5));
 
-    // =========================================
-    // FLICKER: pulsação rápida controlada por poder
-    // =========================================
-    float flicker = 1.0 + sin(time * 25.0 * powerBoost) * 0.05 * power;
-    float pulse   = 1.0 + sin(time * 6.0) * 0.1; // pulsação suave
-    float chargePulse = 1.0 + sin(time * 15.0) * 0.2 * kiCharge; // pulso ao carregar
-
-    // =========================================
-    // FALLOFF VERTICAL (fade em cima e embaixo)
-    // =========================================
-    float expansionY = 2.0 + power * 1.0 + kiCharge * 2.0;
-    float falloff = smoothstep(-1.8, 0.0, Position.y) *
-                    (1.0 - smoothstep(0.0, expansionY, Position.y));
-
-    // =========================================
-    // DISPLACEMENT FINAL
-    // =========================================
-    float totalWave = vertWave * angularWave * combinedNoise;
-    float amp = ampMult * powerBoost * chargeBoost * attackBoost * flicker * pulse * chargePulse;
-
-    vec3 dir = normalize(pos.xyz);
-    vec3 upDir = vec3(0.0, 1.0, 0.0);
-    vec3 finalDir = normalize(mix(dir, upDir, 0.45));
-
-    // Easing da aura (smooth cubic - igual ao original)
     float easedVar = auravar * auravar * (3.0 - 2.0 * auravar);
+    pos.xz *= easedVar;
+    pos.xyz += finalDir * (totalWave * amp * falloff) * pow(auravar, 4.0);
 
-    // Escala XZ da aura por camada e poder
-    pos.xz *= easedVar * scaleMult * (1.0 + power * 0.3 + kiCharge * 0.5);
+    vec4 viewPos = ModelViewMat * vec4(pos.xyz, 1.0);
 
-    // Displacement volumétrico
-    pos.xyz += finalDir * (totalWave * amp * falloff) * pow(auravar, 5.0);
-
-    // Expansão de "onda de choque" ao atacar
-    float shockwave = attackState * sin(time * 20.0) * 0.15 * falloff;
-    pos.xz += dir.xz * shockwave;
-
-    // =========================================
-    // OUTPUTS
-    // =========================================
-    vNoiseValue = combinedNoise;
-    vFalloff    = falloff;
-    vAngular    = angularWave;
-    vLayer      = layer;
-
-    vec4 viewPos  = modelMatrix * vec4(pos.xyz, 1.0);
-    vec4 worldPos = modelMatrix * vec4(Position, 1.0);
-
-    vNormalWorld = normalize(normalMatrix * pos.xyz);
-    vViewDir     = -viewPos.xyz;
-    vWorldPos    = worldPos.xyz;
+    vNormalWorld = normalize(mat3(ModelViewMat) * pos.xyz);
+    vViewDir = -viewPos.xyz;
 
     gl_Position = ProjMat * viewPos;
 }
@@ -8638,4 +8751,23 @@ void main() {
     "force_dirt": true
   }
 }
+
+
+===== FILE: src/main/resources/dragonblockultimate.mixins.json =====
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.dragonultimate.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "dragonblockultimate.refmap.json",
+  "client": [
+    "PlayerSkinMixin"
+  ],
+  "mixins": [],
+  "server": []
+}
+
+
+===== FILE: src/main/resources/dragonblockultimate.refmap.json =====
+{}
 

@@ -4,10 +4,6 @@ import net.dragonultimate.DragonBlockUltimate;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 
 import javax.annotation.Nullable;
@@ -18,24 +14,23 @@ public class AuraShaderManager {
     @Nullable
     private static ShaderInstance auraShader;
 
-    public static final float[][] TRANSFORM_COLORS = {
-        {1.0f, 1.0f, 0.6f,  0.9f, 0.7f, 0.1f},  // Base
-        {1.0f, 1.0f, 0.3f,  1.0f, 0.9f, 0.0f},  // SSJ
-        {1.0f, 1.0f, 0.1f,  1.0f, 0.8f, 0.0f},  // SSJ2
-        {1.0f, 0.95f,0.0f,  1.0f, 0.7f, 0.0f},  // SSJ3
-        {0.8f, 0.3f, 0.0f,  0.6f, 0.1f, 0.0f},  // SSJ4
-        {0.2f, 0.5f, 1.0f,  0.0f, 0.3f, 0.9f},  // SSJBlue
-    };
-
     public static void onRegisterShaders(RegisterShadersEvent event) throws IOException {
-        event.registerShader(
-            new ShaderInstance(
-                event.getResourceProvider(),
-                ResourceLocation.fromNamespaceAndPath(DragonBlockUltimate.MOD_ID, "aura"),
-                com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR_NORMAL
-            ),
-            shader -> auraShader = shader
-        );
+        try {
+            event.registerShader(
+                new ShaderInstance(
+                    event.getResourceProvider(),
+                    ResourceLocation.fromNamespaceAndPath(DragonBlockUltimate.MOD_ID, "aura"),
+                    com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR
+                ),
+                shader -> {
+                    auraShader = shader;
+                    DragonBlockUltimate.LOGGER.info("[DragonBlockUltimate] Shader 'aura' registrado e compilado com sucesso.");
+                }
+            );
+        } catch (Exception e) {
+            DragonBlockUltimate.LOGGER.error("[DragonBlockUltimate] FALHA ao compilar o shader 'aura':", e);
+            throw e;
+        }
     }
 
     @Nullable
@@ -43,51 +38,21 @@ public class AuraShaderManager {
         return auraShader;
     }
 
-    public static void updateUniforms(
-            Player player,
-            float power,
-            float kiCharge,
-            float attackState,
-            int transIndex,
-            float auravar,
-            int layerIndex,
-            float[] customInner,
-            float[] customOuter
-    ) {
+    public static void setUniforms(float auravar, float[] colorInner, float[] colorOuter,
+                                    float alp1, float alp2, float fresnelPower) {
         if (auraShader == null) return;
 
         float time = (Minecraft.getInstance().level != null)
             ? Minecraft.getInstance().level.getGameTime() / 20.0f : 0f;
 
-        int t = Math.max(0, Math.min(transIndex, TRANSFORM_COLORS.length - 1));
-        float[] tColor = TRANSFORM_COLORS[t];
-
-        // Se tiver cor customizada, usa ela
-        float[] inner = (customInner != null) ? customInner : new float[]{tColor[0], tColor[1], tColor[2]};
-        float[] outer = (customOuter != null) ? customOuter : new float[]{tColor[3], tColor[4], tColor[5]};
-
-        float alp1 = layerIndex == 0 ? 0.95f : 0.55f;
-        float alp2 = layerIndex == 0 ? 0.30f : 0.15f;
-
         safeSet(auraShader, "time", time);
-        safeSet(auraShader, "power", power);
-        safeSet(auraShader, "kiCharge", kiCharge);
-        safeSet(auraShader, "attackState", attackState);
-        safeSet(auraShader, "transformation", (float) transIndex);
         safeSet(auraShader, "auravar", auravar);
-        safeSet(auraShader, "layer", (float) layerIndex);
-        safeSet(auraShader, "divis", 1.0f);
-
-        safeSet3(auraShader, "colorInner",      inner[0], inner[1], inner[2]);
-        safeSet3(auraShader, "colorOuter",      outer[0], outer[1], outer[2]);
-        safeSet3(auraShader, "colorCore",       1.0f, 1.0f, 1.0f);
-        safeSet3(auraShader, "transformColor1", inner[0], inner[1], inner[2]);
-        safeSet3(auraShader, "transformColor2", outer[0], outer[1], outer[2]);
-
+        safeSet3(auraShader, "color1", colorInner[0], colorInner[1], colorInner[2]);
+        safeSet3(auraShader, "color2", colorOuter[0], colorOuter[1], colorOuter[2]);
         safeSet(auraShader, "alp1", alp1);
         safeSet(auraShader, "alp2", alp2);
-
-        auraShader.apply();
+        safeSet(auraShader, "power", fresnelPower);
+        safeSet(auraShader, "divis", 1.0f);
     }
 
     private static void safeSet(ShaderInstance s, String name, float val) {

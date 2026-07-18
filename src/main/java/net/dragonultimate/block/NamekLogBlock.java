@@ -1,11 +1,11 @@
 package net.dragonultimate.block;
 
-import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.RotatedPillarBlock;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 
-public class NamekLogBlock extends Block {
+public class NamekLogBlock extends RotatedPillarBlock {
     public NamekLogBlock() {
         super(BlockBehaviour.Properties.of()
                 .mapColor(MapColor.WOOD)

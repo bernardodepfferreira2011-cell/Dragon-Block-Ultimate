@@ -24,3 +24,9 @@ Dragon Ball Mod
     versionRange="[1.21.1,1.22)"
     ordering="NONE"
     side="BOTH"
+
+[[mixins]]
+config="dragonblockultimate.mixins.json"
+
+[[accessTransformers]]
+file="META-INF/accesstransformer.cfg"
