@@ -5615,6 +5615,7 @@ public class SenzuItem extends Item {
 package net.dragonultimate.keybind;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.dragonultimate.screen.MenuInicial;
 import net.dragonultimate.shader.AuraState;
@@ -5625,6 +5626,22 @@ public class KeybindHandler {
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
+
+        AuraState.tick();
+
+        // === TESTE DE REFERENCIA -- particula vanilla em altura conhecida ===
+        // END_ROD exatamente 2 blocos acima dos pes do jogador, em
+        // coordenada de MUNDO (zero ambiguidade). So aparece enquanto a
+        // aura de teste esta ativa. Serve pra comparar contra onde o
+        // marcador magenta da nossa geometria aparece na mesma altura.
+        if (AuraState.isActive() && mc.level != null && mc.player.tickCount % 20 == 0) {
+            mc.level.addParticle(
+                ParticleTypes.END_ROD,
+                mc.player.getX(), mc.player.getY() + 2.0, mc.player.getZ(),
+                0.0, 0.0, 0.0
+            );
+        }
+        // === FIM TESTE ===
 
         while (ModKeybinds.OPEN_MENU.consumeClick()) {
             mc.setScreen(new MenuInicial(
@@ -5825,8 +5842,12 @@ import net.minecraft.client.renderer.entity.layers.RenderLayer;
 
 public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 
-    private static final int RADIAL_SEGMENTS = 32;
-    private static final int VERTICAL_RINGS = 12;
+    private static final float ORIGIN_OFFSET_BLOCKS = 1.407f;
+    private static final float BLOCKS_PER_LOCAL_UNIT = -0.937f;
+
+    private static final int RADIAL_SEGMENTS = 14;
+    private static final int VERTICAL_RINGS = 4;
+
     private static long lastDebug = 0L;
     private static int vertCount = 0;
 
@@ -5844,8 +5865,9 @@ public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 
         boolean active = AuraState.isActive();
         boolean shaderOk = AuraShaderManager.getShader() != null;
+        float intensity = AuraState.getIntensity();
 
-        if (!active) return;
+        if (!active && intensity <= 0.0f) return;
         if (!shaderOk) return;
 
         SaveAuraColor.AuraColorData cor = SaveAuraColor.getAuraColor(player);
@@ -5854,55 +5876,112 @@ public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 
         vertCount = 0;
 
-        AuraShaderManager.setUniforms(1.0f, cor.outerArray(), cor.outerArray(), 0.55f, 0.15f, 3.0f);
-        addFlowingAuraSpikes(consumer, mat, 1.0f, 2.35f, 0.55f, ageInTicks + partialTick);
+        float baseAuraYOuter = 0.05f;
+        float baseAuraYInner = 0.12f;
 
-        AuraShaderManager.setUniforms(1.0f, cor.innerArray(), cor.innerArray(), 0.9f, 0.3f, 2.0f);
-        addFlowingAuraSpikes(consumer, mat, 0.72f, 2.15f, 0.42f, ageInTicks + partialTick + 0.6f);
+        // Opacidade: fora ~80% (alp1/alp2 perto de 0.75-0.85), dentro bem
+        // mais transparente, 30-50% (alp1/alp2 entre 0.35-0.50).
+        AuraShaderManager.setUniforms(1.0f, cor.outerArray(), cor.outerArray(), 0.75f, 0.85f, 3.0f,
+                                       intensity, 0.6f);
+        // radiusTop=0.03f -- quase zero, converge num ponto (bico do triangulo)
+        addAuraCone(consumer, mat, 0.35f, 0.85f, 0.03f, 2.554f, baseAuraYOuter, 0.35f,
+                    ageInTicks + partialTick);
+
+        AuraShaderManager.setUniforms(1.0f, cor.innerArray(), cor.innerArray(), 0.35f, 0.50f, 2.0f,
+                                       intensity, 0.75f);
+        addAuraCone(consumer, mat, 0.25f, 0.62f, 0.03f, 2.261f, baseAuraYInner, 0.28f,
+                    ageInTicks + partialTick + 0.6f);
+    }
+
+    private static float realHeightToLocalY(float realHeightAboveFeet) {
+        return (realHeightAboveFeet - ORIGIN_OFFSET_BLOCKS) / BLOCKS_PER_LOCAL_UNIT;
+    }
+
+    private static float radiusAtT(float t, float radiusBottom, float radiusWaist, float radiusTop) {
+        if (t < 0.4f) {
+            return lerp(radiusBottom, radiusWaist, t / 0.4f);
+        } else {
+            return lerp(radiusWaist, radiusTop, (t - 0.4f) / 0.6f);
+        }
+    }
+
+    private static float lerp(float a, float b, float t) {
+        return a + (b - a) * t;
     }
 
     /**
-     * Gera uma casca espiralada e irregular em torno do corpo do jogador,
-     * parecida com uma aura de Dragon Ball, em vez de um único cone.
+     * Gera a superficie em anel. O anel do TOPO (r == rings, a ponta) fica
+     * SEMPRE limpo -- sem jitter, raio quase zero -- pra convergir num
+     * bico de triangulo. A irregularidade tipo chama fica so no anel
+     * logo abaixo dele.
      */
-    private void addFlowingAuraSpikes(VertexConsumer consumer, Matrix4f mat, float baseRadius, float height, float verticalOffset, float time) {
-        int spikeCount = 18;
-        float speed = 1.65f;
+    private void addAuraCone(VertexConsumer consumer, Matrix4f mat,
+                              float radiusBottom, float radiusWaist, float radiusTop,
+                              float realHeightSpan, float realBaseHeight,
+                              float jitterAmount, float time) {
 
-        for (int i = 0; i < spikeCount; i++) {
-            float phase = (time * speed + i * 0.11f) % 1.0f;
-            if (phase < 0.0f) phase += 1.0f;
+        int segments = RADIAL_SEGMENTS;
+        int rings = VERTICAL_RINGS;
 
-            float pulse = 0.0f;
-            if (phase < 0.5f) {
-                pulse = phase / 0.5f;
-            } else {
-                pulse = (1.0f - phase) / 0.5f;
+        float[] xs = new float[(rings + 1) * segments];
+        float[] ys = new float[(rings + 1) * segments];
+        float[] zs = new float[(rings + 1) * segments];
+
+        for (int r = 0; r <= rings; r++) {
+            float t = (float) r / rings;
+            float radiusHere = radiusAtT(t, radiusBottom, radiusWaist, radiusTop);
+            float realHeightHere = realBaseHeight + realHeightSpan * t;
+
+            boolean isApexRing = (r == rings);
+            boolean jitterZone = !isApexRing && t >= 0.6f;
+
+            for (int s = 0; s < segments; s++) {
+                float angle = (float) (s * 2.0 * Math.PI / segments);
+
+                float jitterR = 0f;
+                float jitterY = 0f;
+                if (jitterZone) {
+                    float phase = (time * 1.65f + s * 0.17f + r * 0.05f) % 1.0f;
+                    if (phase < 0f) phase += 1f;
+                    float pulse = phase < 0.5f ? phase / 0.5f : (1f - phase) / 0.5f;
+                    jitterR = jitterAmount * (pulse - 0.4f);
+                    jitterY = jitterAmount * (pulse - 0.3f) * 0.6f;
+                }
+
+                float sway = isApexRing ? 0f
+                    : (float) (Math.sin(time * 0.35f + s * 0.5f) * 0.03f);
+
+                float radius = Math.max(0.01f, radiusHere + jitterR);
+                float x = (float) (Math.cos(angle) * radius + sway);
+                float z = (float) (Math.sin(angle) * radius - sway);
+                float y = realHeightToLocalY(realHeightHere + jitterY);
+
+                int idx = r * segments + s;
+                xs[idx] = x;
+                ys[idx] = y;
+                zs[idx] = z;
             }
+        }
 
-            float angle = (float) (i * 2.0 * Math.PI / spikeCount);
-            float nextAngle = (float) ((i + 1) * 2.0 * Math.PI / spikeCount);
-            float midAngle = (angle + nextAngle) * 0.5f;
+        for (int r = 0; r < rings; r++) {
+            for (int s = 0; s < segments; s++) {
+                int sNext = (s + 1) % segments;
 
-            float orbitRadius = baseRadius * (0.45f + 0.15f * pulse);
-            float tipRadius = baseRadius * (0.7f + 0.25f * pulse);
-            float lift = verticalOffset + height * 0.92f * phase;
-            float tipHeight = lift + height * 0.16f * pulse;
-            float baseHeight = lift - height * 0.03f * (1.0f + pulse);
+                int i00 = r * segments + s;
+                int i01 = r * segments + sNext;
+                int i10 = (r + 1) * segments + s;
+                int i11 = (r + 1) * segments + sNext;
 
-            float sway = (float) (Math.sin(time * 0.35f + i * 0.8f) * 0.06f + Math.cos(midAngle * 3.0f + time * 0.2f) * 0.03f);
-            float x0 = (float) (Math.cos(angle) * orbitRadius + sway);
-            float z0 = (float) (Math.sin(angle) * orbitRadius - sway);
-            float x1 = (float) (Math.cos(nextAngle) * orbitRadius - sway);
-            float z1 = (float) (Math.sin(nextAngle) * orbitRadius + sway);
-            float xt = (float) (Math.cos(midAngle) * tipRadius);
-            float zt = (float) (Math.sin(midAngle) * tipRadius);
+                vert(consumer, mat, xs[i00], ys[i00], zs[i00]);
+                vert(consumer, mat, xs[i01], ys[i01], zs[i01]);
+                vert(consumer, mat, xs[i10], ys[i10], zs[i10]);
 
-            vert(consumer, mat, x0, baseHeight, z0);
-            vert(consumer, mat, x1, baseHeight, z1);
-            vert(consumer, mat, xt, tipHeight, zt);
+                vert(consumer, mat, xs[i10], ys[i10], zs[i10]);
+                vert(consumer, mat, xs[i01], ys[i01], zs[i01]);
+                vert(consumer, mat, xs[i11], ys[i11], zs[i11]);
 
-            vertCount += 3;
+                vertCount += 6;
+            }
         }
     }
 
@@ -6696,21 +6775,56 @@ public class AuraShaderManager {
         return auraShader;
     }
 
+    /**
+     * Assinatura original mantida — chama a versão nova com bloomStrength
+     * padrão (0.6) e intensity derivado de AuraState. Existe só pra não
+     * quebrar nenhuma chamada antiga que ainda use os 6 argumentos.
+     */
     public static void setUniforms(float auravar, float[] colorInner, float[] colorOuter,
                                     float alp1, float alp2, float fresnelPower) {
+        setUniforms(auravar, colorInner, colorOuter, alp1, alp2, fresnelPower,
+                    AuraState.getIntensity(), 0.6f);
+    }
+
+    /**
+     * Versão estendida: adiciona intensity (nível de carga 0..1, normalmente
+     * AuraState.getIntensity()) e bloomStrength (quanto o núcleo brilhante
+     * simulado aparece). colorCore é derivado automaticamente clareando a
+     * cor externa (outer), já que ainda não existe uma cor de núcleo salva
+     * separada no SaveAuraColor.
+     */
+    public static void setUniforms(float auravar, float[] colorInner, float[] colorOuter,
+                                    float alp1, float alp2, float fresnelPower,
+                                    float intensity, float bloomStrength) {
         if (auraShader == null) return;
 
         float time = (Minecraft.getInstance().level != null)
             ? Minecraft.getInstance().level.getGameTime() / 20.0f : 0f;
 
+        float[] core = lighten(colorOuter, 0.55f);
+
         safeSet(auraShader, "time", time);
-        safeSet(auraShader, "auravar", auravar);
         safeSet3(auraShader, "color1", colorInner[0], colorInner[1], colorInner[2]);
         safeSet3(auraShader, "color2", colorOuter[0], colorOuter[1], colorOuter[2]);
+        safeSet3(auraShader, "colorCore", core[0], core[1], core[2]);
         safeSet(auraShader, "alp1", alp1);
         safeSet(auraShader, "alp2", alp2);
         safeSet(auraShader, "power", fresnelPower);
         safeSet(auraShader, "divis", 1.0f);
+        safeSet(auraShader, "intensity", intensity);
+        safeSet(auraShader, "bloomStrength", bloomStrength);
+    }
+
+    /**
+     * Clareia uma cor RGB em direção ao branco pelo fator t (0..1).
+     * t=0 retorna a cor original, t=1 retorna branco puro.
+     */
+    private static float[] lighten(float[] rgb, float t) {
+        return new float[] {
+            rgb[0] + (1.0f - rgb[0]) * t,
+            rgb[1] + (1.0f - rgb[1]) * t,
+            rgb[2] + (1.0f - rgb[2]) * t
+        };
     }
 
     private static void safeSet(ShaderInstance s, String name, float val) {
@@ -6732,6 +6846,14 @@ public class AuraState {
 
     private static boolean active = false;
 
+    // 0..1: quanto a aura já "carregou" desde que foi ativada.
+    // Sobe suave ao ligar, desce suave ao desligar — dá o efeito de
+    // power-up/power-down mesmo sem ter estados de transformação ainda.
+    private static float chargeLevel = 0.0f;
+
+    private static final float CHARGE_SPEED_PER_TICK = 0.05f;   // ~4 ticks pra chegar a 1.0 (0.2s)
+    private static final float DISCHARGE_SPEED_PER_TICK = 0.08f; // desliga um pouco mais rápido que carrega
+
     private AuraState() {}
 
     public static boolean isActive() {
@@ -6744,6 +6866,31 @@ public class AuraState {
 
     public static void set(boolean value) {
         active = value;
+    }
+
+    /**
+     * Retorna o nível atual de carga (0..1). É esse valor que alimenta o
+     * uniform "intensity" do shader e o vFlicker/coreMask no fragment.
+     */
+    public static float getIntensity() {
+        return chargeLevel;
+    }
+
+    /**
+     * Chamado uma vez por client tick (ver KeybindHandler.onClientTick ou
+     * um listener de tick dedicado). Avança a rampa de carga na direção
+     * certa dependendo se a aura está ativa ou não.
+     */
+    public static void tick() {
+        if (active) {
+            if (chargeLevel < 1.0f) {
+                chargeLevel = Math.min(1.0f, chargeLevel + CHARGE_SPEED_PER_TICK);
+            }
+        } else {
+            if (chargeLevel > 0.0f) {
+                chargeLevel = Math.max(0.0f, chargeLevel - DISCHARGE_SPEED_PER_TICK);
+            }
+        }
     }
 }
 
@@ -8531,13 +8678,18 @@ public class ModTreeGrowers {
 
 in vec3 vNormalWorld;
 in vec3 vViewDir;
+in float vFlicker;
+in float vHeightT;
 
 uniform vec3 color1;
 uniform vec3 color2;
+uniform vec3 colorCore;
 uniform float alp1;
 uniform float alp2;
 uniform float power;
 uniform float divis;
+uniform float intensity;
+uniform float bloomStrength;
 
 out vec4 fragColor;
 
@@ -8546,8 +8698,7 @@ void main() {
     vec3 V = normalize(vViewDir);
 
     // facingAbs: 1.0 = olhando direto pra normal (centro da forma),
-    // 0.0 = de raspão (borda/silhueta). Sem o "if (facingRaw < 0) alpha = 0.01"
-    // problemático de antes - aqui sempre usamos o valor absoluto.
+    // 0.0 = de raspão (borda/silhueta).
     float facingAbs = abs(dot(V, N));
     float edgeFactor = clamp(1.0 - facingAbs, 0.0, 1.0);
     edgeFactor = pow(edgeFactor, max(power, 0.1)) / max(divis, 0.01);
@@ -8555,6 +8706,19 @@ void main() {
 
     vec3 color = mix(color1, color2, blendFactor);
     float alpha = mix(alp1, alp2, blendFactor);
+
+    // núcleo mais claro perto do corpo, some rápido em direção à borda —
+    // simula bloom sem precisar de post-processing real
+    float coreMask = pow(facingAbs, 3.0) * clamp(intensity, 0.0, 1.0);
+    color = mix(color, colorCore, clamp(coreMask * bloomStrength, 0.0, 0.85));
+    alpha += coreMask * bloomStrength * 0.35;
+
+    // gradiente vertical: base mais forte, topo mais fraco/dissipando
+    float verticalFade = mix(1.15, 0.55, vHeightT);
+    alpha *= verticalFade;
+
+    color *= vFlicker;
+    alpha *= vFlicker;
 
     fragColor = vec4(color, clamp(alpha, 0.0, 1.0));
 }
@@ -8571,15 +8735,18 @@ void main() {
     {"name": "ProjMat", "type": "matrix4x4", "count": 16,
      "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
 
-    {"name": "time",    "type": "float", "count": 1, "values": [0.0]},
-    {"name": "auravar", "type": "float", "count": 1, "values": [1.0]},
+    {"name": "time",      "type": "float", "count": 1, "values": [0.0]},
+    {"name": "intensity", "type": "float", "count": 1, "values": [1.0]},
 
-    {"name": "color1", "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
-    {"name": "color2", "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
-    {"name": "alp1",   "type": "float", "count": 1, "values": [0.9]},
-    {"name": "alp2",   "type": "float", "count": 1, "values": [0.25]},
-    {"name": "power",  "type": "float", "count": 1, "values": [2.5]},
-    {"name": "divis",  "type": "float", "count": 1, "values": [1.0]}
+    {"name": "color1",    "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
+    {"name": "color2",    "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
+    {"name": "colorCore", "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
+
+    {"name": "alp1",  "type": "float", "count": 1, "values": [0.9]},
+    {"name": "alp2",  "type": "float", "count": 1, "values": [0.25]},
+    {"name": "power", "type": "float", "count": 1, "values": [2.5]},
+    {"name": "divis", "type": "float", "count": 1, "values": [1.0]},
+    {"name": "bloomStrength", "type": "float", "count": 1, "values": [0.6]}
   ],
   "samplers": [],
   "blend": {
@@ -8599,94 +8766,31 @@ in vec4 Color;
 
 out vec3 vNormalWorld;
 out vec3 vViewDir;
+out float vFlicker;
+out float vHeightT;
 
 uniform mat4 ModelViewMat;
 uniform mat4 ProjMat;
 
 uniform float time;
-uniform float auravar;
-
-vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
-
-float snoise(vec3 v) {
-    const vec2 C = vec2(1.0/6.0, 1.0/3.0);
-    const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
-    vec3 i  = floor(v + dot(v, C.yyy));
-    vec3 x0 = v - i + dot(i, C.xxx);
-    vec3 g = step(x0.yzx, x0.xyz);
-    vec3 l = 1.0 - g;
-    vec3 i1 = min(g.xyz, l.zxy);
-    vec3 i2 = max(g.xyz, l.zxy);
-    vec3 x1 = x0 - i1 + C.xxx;
-    vec3 x2 = x0 - i2 + C.yyy;
-    vec3 x3 = x0 - D.yyy;
-    i = mod289(i);
-    vec4 p = permute(permute(permute(
-               i.z + vec4(0.0, i1.z, i2.z, 1.0))
-             + i.y + vec4(0.0, i1.y, i2.y, 1.0))
-             + i.x + vec4(0.0, i1.x, i2.x, 1.0));
-    float n_ = 0.142857142857;
-    vec3 ns = D.wyz - D.xyz * n_;
-    vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
-    vec4 x_ = floor(j * ns.z);
-    vec4 y_ = floor(j - 7.0 * x_);
-    vec4 x = x_ * ns.x + ns.yyyy;
-    vec4 y = y_ * ns.x + ns.xxxx;
-    vec4 h = 1.0 - abs(x) - abs(y);
-    vec4 b0 = vec4(x.xy, y.xy);
-    vec4 b1 = vec4(x.zw, y.zw);
-    vec4 s0 = floor(b0)*2.0 + 1.0;
-    vec4 s1 = floor(b1)*2.0 + 1.0;
-    vec4 sh = -step(h, vec4(0.0));
-    vec4 a0 = b0.xzyw + s0.xzyw*sh.xzyw;
-    vec4 a1 = b1.xzyw + s1.xzyw*sh.xzyw;
-    vec3 p0 = vec3(a0.xy, h.x);
-    vec3 p1 = vec3(a0.zw, h.y);
-    vec3 p2 = vec3(a1.xy, h.z);
-    vec3 p3 = vec3(a1.zw, h.w);
-    vec4 norm = inversesqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
-    p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
-    vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
-    m = m * m;
-    return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
-}
-
-float triangleWave(float x) {
-    return abs(fract(x) * 2.0 - 1.0);
-}
+uniform float intensity;   // 0..1 nível de carga da aura (rampa de AuraState)
 
 void main() {
     vec4 pos = vec4(Position, 1.0);
 
-    float freqY = 2.0;
-    float speed = 5.5;
-    float amp = 0.6;
+    vec4 viewPos = ModelViewMat * pos;
 
-    float angle = atan(Position.z, Position.x);
-    float angularWave = triangleWave(angle * 5.0 / 6.2831853 + time * 0.1);
-    float layerWave = triangleWave((Position.y * freqY) - (time * speed));
-
-    vec3 noiseCoord = Position * 4.0;
-    noiseCoord.y -= time * 1.5;
-    float n = snoise(noiseCoord) * 0.5 + 0.5;
-
-    float totalWave = layerWave * angularWave * n;
-    float falloff = smoothstep(-1.8, 0.0, Position.y) * (1.0 - smoothstep(0.0, 2.3, Position.y));
-
-    vec3 dir = normalize(vec3(pos.x, 0.0, pos.z));
-    vec3 upwardDir = vec3(0.0, 1.0, 0.0);
-    vec3 finalDir = normalize(mix(dir, upwardDir, 0.5));
-
-    float easedVar = auravar * auravar * (3.0 - 2.0 * auravar);
-    pos.xz *= easedVar;
-    pos.xyz += finalDir * (totalWave * amp * falloff) * pow(auravar, 4.0);
-
-    vec4 viewPos = ModelViewMat * vec4(pos.xyz, 1.0);
-
-    vNormalWorld = normalize(mat3(ModelViewMat) * pos.xyz);
+    // a normal "world" aqui é aproximada pela direção radial do próprio vértice
+    // (a malha já vem ondulada do Java, então usamos a posição como pseudo-normal
+    // pra dar o efeito de fresnel/borda no fragment shader)
+    vNormalWorld = normalize(mat3(ModelViewMat) * Position);
     vViewDir = -viewPos.xyz;
+
+    // flicker de brilho, mais perceptível quando a aura está mais carregada
+    vFlicker = 0.85 + 0.15 * sin(time * 18.0 + Position.y * 3.0) * clamp(intensity - 0.3, 0.0, 1.0);
+
+    // normaliza a altura do vértice pra 0..1, usado no gradiente vertical do fragment
+    vHeightT = clamp((Position.y + 0.2) / 2.6, 0.0, 1.0);
 
     gl_Position = ProjMat * viewPos;
 }
