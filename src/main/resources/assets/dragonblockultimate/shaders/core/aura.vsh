@@ -24,11 +24,6 @@ void main() {
 
     vFlicker = 0.85 + 0.15 * sin(time * 18.0 + Position.y * 3.0) * clamp(intensity - 0.3, 0.0, 1.0);
 
-    // vHeightT: fracao de altura REAL (0 na base, 1 no topo/ponta), vinda
-    // direto do Java via canal alfa da cor do vertice -- NAO calculada a
-    // partir de Position, ja que o eixo local esta invertido/deslocado
-    // (ver AuraRenderLayer.ORIGIN_OFFSET_BLOCKS) e uma formula baseada em
-    // Position aqui sempre ficaria errada ou desatualizada.
     vHeightT = Color.a;
 
     gl_Position = ProjMat * viewPos;

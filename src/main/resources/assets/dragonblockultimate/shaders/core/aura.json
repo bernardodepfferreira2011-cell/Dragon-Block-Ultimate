@@ -19,7 +19,9 @@
     {"name": "alp2",  "type": "float", "count": 1, "values": [0.25]},
     {"name": "power", "type": "float", "count": 1, "values": [2.5]},
     {"name": "divis", "type": "float", "count": 1, "values": [1.0]},
-    {"name": "bloomStrength", "type": "float", "count": 1, "values": [0.6]}
+    {"name": "bloomStrength", "type": "float", "count": 1, "values": [0.6]},
+    {"name": "bodyDensity", "type": "float", "count": 1, "values": [0.5]},
+    {"name": "tipBoostAmount", "type": "float", "count": 1, "values": [1.0]}
   ],
   "samplers": [],
   "blend": {

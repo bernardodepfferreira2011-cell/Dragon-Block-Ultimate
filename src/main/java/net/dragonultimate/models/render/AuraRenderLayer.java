@@ -51,23 +51,28 @@ public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 
         vertCount = 0;
 
-        float baseAuraYOuter = 0.05f;
-        float baseAuraYInner = 0.12f;
+        // Volume voltando pro nível que já funcionava (radiusWaist/crownRadius
+        // iguais ao original) -- só a base (radiusBottom) fica um pouco mais
+        // fina, sem encolher o cone inteiro como na tentativa anterior.
+        float baseAuraYOuter = -0.05f;
+        float baseAuraYInner = -0.02f;
+
+        long seed = player.getUUID().getLeastSignificantBits();
 
         AuraShaderManager.setUniforms(1.0f, cor.outerArray(), cor.outerArray(), 0.35f, 0.45f, 3.0f,
-                                       intensity, 0.4f);
+                                       intensity, 0.4f, 0.4f, 1.0f);
         VertexConsumer outerConsumer = buffer.getBuffer(AURA_RENDER_TYPE);
-        addAuraCone(outerConsumer, mat, 0.35f, 0.85f, 0.03f, 2.554f, baseAuraYOuter, 0.35f,
-                    ageInTicks + partialTick);
+        addAuraCone(outerConsumer, mat, 0.24f, 0.85f, 0.22f, 2.554f, baseAuraYOuter,
+                    12, 0.55f, 0.20f, 0f, ageInTicks + partialTick, seed);
         if (buffer instanceof MultiBufferSource.BufferSource bufferSource) {
             bufferSource.endBatch(AURA_RENDER_TYPE);
         }
 
         AuraShaderManager.setUniforms(1.0f, cor.innerArray(), cor.innerArray(), 0.10f, 0.18f, 2.0f,
-                                       intensity, 0.5f);
+                                       intensity, 0.5f, 0.85f, 1.0f);
         VertexConsumer innerConsumer = buffer.getBuffer(AURA_RENDER_TYPE);
-        addAuraCone(innerConsumer, mat, 0.25f, 0.62f, 0.03f, 2.261f, baseAuraYInner, 0.28f,
-                    ageInTicks + partialTick + 0.6f);
+        addAuraCone(innerConsumer, mat, 0.18f, 0.62f, 0.15f, 2.261f, baseAuraYInner,
+                    10, 0.40f, 0.15f, (float) (Math.PI / 6.0), ageInTicks + partialTick + 0.6f, seed + 991);
     }
 
     private static float realHeightToLocalY(float realHeightAboveFeet) {
@@ -86,10 +91,19 @@ public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
         return a + (b - a) * t;
     }
 
+    private static float hash01(long seed, int salt) {
+        long x = seed + salt * 0x9E3779B97F4A7C15L;
+        x = (x ^ (x >>> 30)) * 0xBF58476D1CE4E5B9L;
+        x = (x ^ (x >>> 27)) * 0x94D049BB133111EBL;
+        x = x ^ (x >>> 31);
+        return ((x >>> 40) & 0xFFFFFF) / (float) 0xFFFFFF;
+    }
+
     private void addAuraCone(VertexConsumer consumer, Matrix4f mat,
-                              float radiusBottom, float radiusWaist, float radiusTop,
+                              float radiusBottom, float radiusWaist, float crownRadius,
                               float realHeightSpan, float realBaseHeight,
-                              float jitterAmount, float time) {
+                              int spikeCount, float spikeHeightSpan, float spikeJitter,
+                              float angleOffset, float time, long seed) {
 
         int segments = RADIAL_SEGMENTS;
         int rings = VERTICAL_RINGS;
@@ -100,32 +114,15 @@ public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 
         for (int r = 0; r <= rings; r++) {
             float t = (float) r / rings;
-            float radiusHere = radiusAtT(t, radiusBottom, radiusWaist, radiusTop);
+            float radiusHere = radiusAtT(t, radiusBottom, radiusWaist, crownRadius);
             float realHeightHere = realBaseHeight + realHeightSpan * t;
-
-            boolean isApexRing = (r == rings);
-            boolean jitterZone = !isApexRing && t >= 0.6f;
 
             for (int s = 0; s < segments; s++) {
                 float angle = (float) (s * 2.0 * Math.PI / segments);
 
-                float jitterR = 0f;
-                float jitterY = 0f;
-                if (jitterZone) {
-                    float phase = (time * 1.65f + s * 0.17f + r * 0.05f) % 1.0f;
-                    if (phase < 0f) phase += 1f;
-                    float pulse = phase < 0.5f ? phase / 0.5f : (1f - phase) / 0.5f;
-                    jitterR = jitterAmount * (pulse - 0.4f);
-                    jitterY = jitterAmount * (pulse - 0.3f) * 0.6f;
-                }
-
-                float sway = isApexRing ? 0f
-                    : (float) (Math.sin(time * 0.35f + s * 0.5f) * 0.03f);
-
-                float radius = Math.max(0.01f, radiusHere + jitterR);
-                float x = (float) (Math.cos(angle) * radius + sway);
-                float z = (float) (Math.sin(angle) * radius - sway);
-                float y = realHeightToLocalY(realHeightHere + jitterY);
+                float x = (float) (Math.cos(angle) * radiusHere);
+                float z = (float) (Math.sin(angle) * radiusHere);
+                float y = realHeightToLocalY(realHeightHere);
 
                 int idx = r * segments + s;
                 xs[idx] = x;
@@ -156,6 +153,72 @@ public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
 
                 vertCount += 6;
             }
+        }
+
+        float crownRealHeight = realBaseHeight + realHeightSpan;
+        float crownLocalY = realHeightToLocalY(crownRealHeight);
+
+        float centerLocalY = crownLocalY;
+        for (int s = 0; s < segments; s++) {
+            int sNext = (s + 1) % segments;
+            float angleA = (float) (s * 2.0 * Math.PI / segments);
+            float angleB = (float) (sNext * 2.0 * Math.PI / segments);
+
+            float xa = (float) (Math.cos(angleA) * crownRadius);
+            float za = (float) (Math.sin(angleA) * crownRadius);
+            float xb = (float) (Math.cos(angleB) * crownRadius);
+            float zb = (float) (Math.sin(angleB) * crownRadius);
+
+            vert(consumer, mat, 0f, centerLocalY, 0f, 1.0f);
+            vert(consumer, mat, xa, centerLocalY, za, 1.0f);
+            vert(consumer, mat, xb, centerLocalY, zb, 1.0f);
+
+            vertCount += 3;
+        }
+
+        for (int i = 0; i < spikeCount; i++) {
+            float baseAngle = angleOffset + (float) (i * 2.0 * Math.PI / spikeCount);
+
+            float angleJitter = (hash01(seed, i * 7 + 1) - 0.5f) * (float) (2.0 * Math.PI / spikeCount) * 0.9f;
+            float centerAngle = baseAngle + angleJitter;
+
+            float widthFactor = 0.55f + hash01(seed, i * 7 + 2) * 0.9f;
+            float baseHalfWidth = (float) (2.0 * Math.PI / spikeCount) * 0.32f * widthFactor;
+
+            float heightFactor = 0.45f + hash01(seed, i * 7 + 3) * 1.35f;
+            float ownSpan = spikeHeightSpan * heightFactor;
+
+            float radialPullback = crownRadius * (hash01(seed, i * 7 + 4) * 0.15f);
+            float spikeBaseRadius = Math.max(crownRadius - radialPullback, crownRadius * 0.8f);
+
+            float phaseOffset = hash01(seed, i * 7 + 5);
+            float freqFactor = 0.8f + hash01(seed, i * 7 + 6) * 0.9f;
+            float spikePhase = (time * 1.3f * freqFactor + phaseOffset) % 1.0f;
+            if (spikePhase < 0f) spikePhase += 1f;
+            float spikePulse = spikePhase < 0.5f ? spikePhase / 0.5f : (1f - spikePhase) / 0.5f;
+
+            float tipRealHeight = crownRealHeight
+                + ownSpan * (0.5f + 0.5f * spikePulse)
+                + spikeJitter * (spikePulse - 0.5f);
+
+            float leftAngle = centerAngle - baseHalfWidth;
+            float rightAngle = centerAngle + baseHalfWidth;
+
+            float baseLx = (float) (Math.cos(leftAngle) * spikeBaseRadius);
+            float baseLz = (float) (Math.sin(leftAngle) * spikeBaseRadius);
+            float baseRx = (float) (Math.cos(rightAngle) * spikeBaseRadius);
+            float baseRz = (float) (Math.sin(rightAngle) * spikeBaseRadius);
+
+            float tipDrift = crownRadius * 0.3f * (hash01(seed, i * 7 + 7) - 0.5f);
+            float tipX = (float) (Math.cos(centerAngle) * tipDrift);
+            float tipZ = (float) (Math.sin(centerAngle) * tipDrift);
+            float tipLocalY = realHeightToLocalY(tipRealHeight);
+
+            vert(consumer, mat, baseLx, crownLocalY, baseLz, 1.0f);
+            vert(consumer, mat, baseRx, crownLocalY, baseRz, 1.0f);
+            vert(consumer, mat, tipX, tipLocalY, tipZ, 1.0f);
+
+            vertCount += 3;
         }
     }
 

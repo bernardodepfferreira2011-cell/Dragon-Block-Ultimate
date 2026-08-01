@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-OUTPUT = ROOT / "arquivo.txr"
+OUTPUT = ROOT / "arquivo.txt"
 ALLOWED_EXTENSIONS = {".vsh", ".fsh", ".json", ".java"}
 IGNORED_DIRS = {".git", ".gradle", "build", "out", "node_modules", ".idea", ".vscode", "run", "tmp"}
 

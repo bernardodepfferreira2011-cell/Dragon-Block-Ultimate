@@ -38,27 +38,32 @@ public class AuraShaderManager {
         return auraShader;
     }
 
-    /**
-     * Assinatura original mantida — chama a versão nova com bloomStrength
-     * padrão (0.6) e intensity derivado de AuraState. Existe só pra não
-     * quebrar nenhuma chamada antiga que ainda use os 6 argumentos.
-     */
+    /** Assinatura legada (6 args) -- mantida por compatibilidade. */
     public static void setUniforms(float auravar, float[] colorInner, float[] colorOuter,
                                     float alp1, float alp2, float fresnelPower) {
         setUniforms(auravar, colorInner, colorOuter, alp1, alp2, fresnelPower,
-                    AuraState.getIntensity(), 0.6f);
+                    AuraState.getIntensity(), 0.6f, 0.5f, 1.0f);
     }
 
-    /**
-     * Versão estendida: adiciona intensity (nível de carga 0..1, normalmente
-     * AuraState.getIntensity()) e bloomStrength (quanto o núcleo brilhante
-     * simulado aparece). colorCore é derivado automaticamente clareando a
-     * cor externa (outer), já que ainda não existe uma cor de núcleo salva
-     * separada no SaveAuraColor.
-     */
+    /** Assinatura intermediaria (8 args) -- mantida por compatibilidade. */
     public static void setUniforms(float auravar, float[] colorInner, float[] colorOuter,
                                     float alp1, float alp2, float fresnelPower,
                                     float intensity, float bloomStrength) {
+        setUniforms(auravar, colorInner, colorOuter, alp1, alp2, fresnelPower,
+                    intensity, bloomStrength, 0.5f, 1.0f);
+    }
+
+    /**
+     * Assinatura completa (10 args). bodyDensity e tipBoostAmount sao
+     * configuraveis por camada -- uma camada ja bem transparente
+     * (alp1/alp2 baixos) precisa de bodyDensity mais perto de 1.0 pra nao
+     * desaparecer quando multiplicado; uma camada mais opaca aguenta um
+     * bodyDensity mais baixo sem sumir.
+     */
+    public static void setUniforms(float auravar, float[] colorInner, float[] colorOuter,
+                                    float alp1, float alp2, float fresnelPower,
+                                    float intensity, float bloomStrength,
+                                    float bodyDensity, float tipBoostAmount) {
         if (auraShader == null) return;
 
         float time = (Minecraft.getInstance().level != null)
@@ -76,12 +81,10 @@ public class AuraShaderManager {
         safeSet(auraShader, "divis", 1.0f);
         safeSet(auraShader, "intensity", intensity);
         safeSet(auraShader, "bloomStrength", bloomStrength);
+        safeSet(auraShader, "bodyDensity", bodyDensity);
+        safeSet(auraShader, "tipBoostAmount", tipBoostAmount);
     }
 
-    /**
-     * Clareia uma cor RGB em direção ao branco pelo fator t (0..1).
-     * t=0 retorna a cor original, t=1 retorna branco puro.
-     */
     private static float[] lighten(float[] rgb, float t) {
         return new float[] {
             rgb[0] + (1.0f - rgb[0]) * t,

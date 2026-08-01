@@ -14,6 +14,8 @@ uniform float power;
 uniform float divis;
 uniform float intensity;
 uniform float bloomStrength;
+uniform float bodyDensity;
+uniform float tipBoostAmount;
 
 out vec4 fragColor;
 
@@ -33,12 +35,7 @@ void main() {
     color = mix(color, colorCore, clamp(coreMask * bloomStrength, 0.0, 0.85));
     alpha += coreMask * bloomStrength * 0.35;
 
-    // Curva de densidade por altura: corpo principal (0..0.55 de vHeightT)
-    // fica suave e estavel; a partir dai sobe forte ate saturar bem perto
-    // da ponta -- e o padrao "corpo difuso, ponta vivida" da referencia,
-    // em vez de densidade uniforme (ou pior, invertida) ao longo de tudo.
-    float bodyDensity = 0.4;
-    float tipBoost = smoothstep(0.55, 1.0, vHeightT) * 1.0;
+    float tipBoost = smoothstep(0.55, 1.0, vHeightT) * tipBoostAmount;
     float verticalFade = bodyDensity + tipBoost;
     alpha *= verticalFade;
 
