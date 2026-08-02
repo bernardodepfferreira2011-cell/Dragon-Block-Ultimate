@@ -1,10 +1,7 @@
 package net.dragonultimate.models.render;
 
-import org.joml.Matrix4f;
-
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-
 import net.dragonultimate.save.SaveAuraColor;
 import net.dragonultimate.shader.AuraRenderTypes;
 import net.dragonultimate.shader.AuraShaderManager;
@@ -15,17 +12,15 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import org.joml.Matrix4f;
 
 public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
 
-    private static final float ORIGIN_OFFSET_BLOCKS = 1.407f;
-    private static final float BLOCKS_PER_LOCAL_UNIT = -0.937f;
+    private static final int RADIAL_SEGMENTS = 32;
+    private static final int VERTICAL_RINGS = 14;
 
-    private static final int RADIAL_SEGMENTS = 14;
-    private static final int VERTICAL_RINGS = 4;
-
-    private static long lastDebug = 0L;
-    private static int vertCount = 0;
+    private static final float SPIKE_CYCLE_TICKS = 55f;
+    private static final int NUM_PEAKS = 7;
 
     private static final RenderType AURA_RENDER_TYPE =
         AuraRenderTypes.aura(AuraRenderTypes.AuraBlendMode.TRANSLUCENT);
@@ -39,190 +34,88 @@ public class AuraRenderLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
                         AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
                         float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
 
-        boolean active = AuraState.isActive();
-        boolean shaderOk = AuraShaderManager.getShader() != null;
-        float intensity = AuraState.getIntensity();
-
-        if (!active && intensity <= 0.0f) return;
-        if (!shaderOk) return;
+        if (!AuraState.isActive()) return;
+        if (AuraShaderManager.getShader() == null) return;
 
         SaveAuraColor.AuraColorData cor = SaveAuraColor.getAuraColor(player);
+        VertexConsumer consumer = buffer.getBuffer(AURA_RENDER_TYPE);
         Matrix4f mat = poseStack.last().pose();
 
-        vertCount = 0;
+        AuraShaderManager.setStyle(2.5f, 1.0f);
 
-        // Volume voltando pro nível que já funcionava (radiusWaist/crownRadius
-        // iguais ao original) -- só a base (radiusBottom) fica um pouco mais
-        // fina, sem encolher o cone inteiro como na tentativa anterior.
-        float baseAuraYOuter = -0.05f;
-        float baseAuraYInner = -0.02f;
+        float baseCycle = (ageInTicks % SPIKE_CYCLE_TICKS) / SPIKE_CYCLE_TICKS;
 
-        long seed = player.getUUID().getLeastSignificantBits();
+        float[] out = cor.outerArray();
+        addSpikyCone(consumer, mat, 0.55f, 2.2f, 0.75f, 1.1f, baseCycle,
+            out[0], out[1], out[2], 0.7f);
 
-        AuraShaderManager.setUniforms(1.0f, cor.outerArray(), cor.outerArray(), 0.35f, 0.45f, 3.0f,
-                                       intensity, 0.4f, 0.4f, 1.0f);
-        VertexConsumer outerConsumer = buffer.getBuffer(AURA_RENDER_TYPE);
-        addAuraCone(outerConsumer, mat, 0.24f, 0.85f, 0.22f, 2.554f, baseAuraYOuter,
-                    12, 0.55f, 0.20f, 0f, ageInTicks + partialTick, seed);
-        if (buffer instanceof MultiBufferSource.BufferSource bufferSource) {
-            bufferSource.endBatch(AURA_RENDER_TYPE);
-        }
-
-        AuraShaderManager.setUniforms(1.0f, cor.innerArray(), cor.innerArray(), 0.10f, 0.18f, 2.0f,
-                                       intensity, 0.5f, 0.85f, 1.0f);
-        VertexConsumer innerConsumer = buffer.getBuffer(AURA_RENDER_TYPE);
-        addAuraCone(innerConsumer, mat, 0.18f, 0.62f, 0.15f, 2.261f, baseAuraYInner,
-                    10, 0.40f, 0.15f, (float) (Math.PI / 6.0), ageInTicks + partialTick + 0.6f, seed + 991);
+        float[] in = cor.innerArray();
+        addSpikyCone(consumer, mat, 0.32f, 2.0f, 0.75f, 0.7f, baseCycle,
+            in[0], in[1], in[2], 0.85f);
     }
 
-    private static float realHeightToLocalY(float realHeightAboveFeet) {
-        return (realHeightAboveFeet - ORIGIN_OFFSET_BLOCKS) / BLOCKS_PER_LOCAL_UNIT;
-    }
+    private void addSpikyCone(VertexConsumer consumer, Matrix4f mat, float baseRadius, float height,
+                               float taper, float peakStrength, float baseCycle,
+                               float r, float g, float b, float a) {
+        for (int ring = 0; ring < VERTICAL_RINGS; ring++) {
+            float t0 = (float) ring / VERTICAL_RINGS;
+            float t1 = (float) (ring + 1) / VERTICAL_RINGS;
 
-    private static float radiusAtT(float t, float radiusBottom, float radiusWaist, float radiusTop) {
-        if (t < 0.4f) {
-            return lerp(radiusBottom, radiusWaist, t / 0.4f);
-        } else {
-            return lerp(radiusWaist, radiusTop, (t - 0.4f) / 0.6f);
-        }
-    }
+            float y0 = -0.1f + t0 * (height + 0.1f);
+            float y1 = -0.1f + t1 * (height + 0.1f);
 
-    private static float lerp(float a, float b, float t) {
-        return a + (b - a) * t;
-    }
+            for (int seg = 0; seg < RADIAL_SEGMENTS; seg++) {
+                float a0 = (float) (seg * 2.0 * Math.PI / RADIAL_SEGMENTS);
+                float a1 = (float) ((seg + 1) * 2.0 * Math.PI / RADIAL_SEGMENTS);
 
-    private static float hash01(long seed, int salt) {
-        long x = seed + salt * 0x9E3779B97F4A7C15L;
-        x = (x ^ (x >>> 30)) * 0xBF58476D1CE4E5B9L;
-        x = (x ^ (x >>> 27)) * 0x94D049BB133111EBL;
-        x = x ^ (x >>> 31);
-        return ((x >>> 40) & 0xFFFFFF) / (float) 0xFFFFFF;
-    }
+                float finalR00 = spikyRadius(baseRadius, taper, t0, a0, peakStrength, baseCycle);
+                float finalR10 = spikyRadius(baseRadius, taper, t0, a1, peakStrength, baseCycle);
+                float finalR01 = spikyRadius(baseRadius, taper, t1, a0, peakStrength, baseCycle);
+                float finalR11 = spikyRadius(baseRadius, taper, t1, a1, peakStrength, baseCycle);
 
-    private void addAuraCone(VertexConsumer consumer, Matrix4f mat,
-                              float radiusBottom, float radiusWaist, float crownRadius,
-                              float realHeightSpan, float realBaseHeight,
-                              int spikeCount, float spikeHeightSpan, float spikeJitter,
-                              float angleOffset, float time, long seed) {
+                float x00 = (float)(Math.cos(a0) * finalR00), z00 = (float)(Math.sin(a0) * finalR00);
+                float x10 = (float)(Math.cos(a1) * finalR10), z10 = (float)(Math.sin(a1) * finalR10);
+                float x01 = (float)(Math.cos(a0) * finalR01), z01 = (float)(Math.sin(a0) * finalR01);
+                float x11 = (float)(Math.cos(a1) * finalR11), z11 = (float)(Math.sin(a1) * finalR11);
 
-        int segments = RADIAL_SEGMENTS;
-        int rings = VERTICAL_RINGS;
+                vert(consumer, mat, x00, y0, z00, r, g, b, a);
+                vert(consumer, mat, x10, y0, z10, r, g, b, a);
+                vert(consumer, mat, x01, y1, z01, r, g, b, a);
 
-        float[] xs = new float[(rings + 1) * segments];
-        float[] ys = new float[(rings + 1) * segments];
-        float[] zs = new float[(rings + 1) * segments];
-
-        for (int r = 0; r <= rings; r++) {
-            float t = (float) r / rings;
-            float radiusHere = radiusAtT(t, radiusBottom, radiusWaist, crownRadius);
-            float realHeightHere = realBaseHeight + realHeightSpan * t;
-
-            for (int s = 0; s < segments; s++) {
-                float angle = (float) (s * 2.0 * Math.PI / segments);
-
-                float x = (float) (Math.cos(angle) * radiusHere);
-                float z = (float) (Math.sin(angle) * radiusHere);
-                float y = realHeightToLocalY(realHeightHere);
-
-                int idx = r * segments + s;
-                xs[idx] = x;
-                ys[idx] = y;
-                zs[idx] = z;
+                vert(consumer, mat, x10, y0, z10, r, g, b, a);
+                vert(consumer, mat, x11, y1, z11, r, g, b, a);
+                vert(consumer, mat, x01, y1, z01, r, g, b, a);
             }
         }
-
-        for (int r = 0; r < rings; r++) {
-            float t0 = (float) r / rings;
-            float t1 = (float) (r + 1) / rings;
-
-            for (int s = 0; s < segments; s++) {
-                int sNext = (s + 1) % segments;
-
-                int i00 = r * segments + s;
-                int i01 = r * segments + sNext;
-                int i10 = (r + 1) * segments + s;
-                int i11 = (r + 1) * segments + sNext;
-
-                vert(consumer, mat, xs[i00], ys[i00], zs[i00], t0);
-                vert(consumer, mat, xs[i01], ys[i01], zs[i01], t0);
-                vert(consumer, mat, xs[i10], ys[i10], zs[i10], t1);
-
-                vert(consumer, mat, xs[i10], ys[i10], zs[i10], t1);
-                vert(consumer, mat, xs[i01], ys[i01], zs[i01], t0);
-                vert(consumer, mat, xs[i11], ys[i11], zs[i11], t1);
-
-                vertCount += 6;
-            }
-        }
-
-        float crownRealHeight = realBaseHeight + realHeightSpan;
-        float crownLocalY = realHeightToLocalY(crownRealHeight);
-
-        float centerLocalY = crownLocalY;
-        for (int s = 0; s < segments; s++) {
-            int sNext = (s + 1) % segments;
-            float angleA = (float) (s * 2.0 * Math.PI / segments);
-            float angleB = (float) (sNext * 2.0 * Math.PI / segments);
-
-            float xa = (float) (Math.cos(angleA) * crownRadius);
-            float za = (float) (Math.sin(angleA) * crownRadius);
-            float xb = (float) (Math.cos(angleB) * crownRadius);
-            float zb = (float) (Math.sin(angleB) * crownRadius);
-
-            vert(consumer, mat, 0f, centerLocalY, 0f, 1.0f);
-            vert(consumer, mat, xa, centerLocalY, za, 1.0f);
-            vert(consumer, mat, xb, centerLocalY, zb, 1.0f);
-
-            vertCount += 3;
-        }
-
-        for (int i = 0; i < spikeCount; i++) {
-            float baseAngle = angleOffset + (float) (i * 2.0 * Math.PI / spikeCount);
-
-            float angleJitter = (hash01(seed, i * 7 + 1) - 0.5f) * (float) (2.0 * Math.PI / spikeCount) * 0.9f;
-            float centerAngle = baseAngle + angleJitter;
-
-            float widthFactor = 0.55f + hash01(seed, i * 7 + 2) * 0.9f;
-            float baseHalfWidth = (float) (2.0 * Math.PI / spikeCount) * 0.32f * widthFactor;
-
-            float heightFactor = 0.45f + hash01(seed, i * 7 + 3) * 1.35f;
-            float ownSpan = spikeHeightSpan * heightFactor;
-
-            float radialPullback = crownRadius * (hash01(seed, i * 7 + 4) * 0.15f);
-            float spikeBaseRadius = Math.max(crownRadius - radialPullback, crownRadius * 0.8f);
-
-            float phaseOffset = hash01(seed, i * 7 + 5);
-            float freqFactor = 0.8f + hash01(seed, i * 7 + 6) * 0.9f;
-            float spikePhase = (time * 1.3f * freqFactor + phaseOffset) % 1.0f;
-            if (spikePhase < 0f) spikePhase += 1f;
-            float spikePulse = spikePhase < 0.5f ? spikePhase / 0.5f : (1f - spikePhase) / 0.5f;
-
-            float tipRealHeight = crownRealHeight
-                + ownSpan * (0.5f + 0.5f * spikePulse)
-                + spikeJitter * (spikePulse - 0.5f);
-
-            float leftAngle = centerAngle - baseHalfWidth;
-            float rightAngle = centerAngle + baseHalfWidth;
-
-            float baseLx = (float) (Math.cos(leftAngle) * spikeBaseRadius);
-            float baseLz = (float) (Math.sin(leftAngle) * spikeBaseRadius);
-            float baseRx = (float) (Math.cos(rightAngle) * spikeBaseRadius);
-            float baseRz = (float) (Math.sin(rightAngle) * spikeBaseRadius);
-
-            float tipDrift = crownRadius * 0.3f * (hash01(seed, i * 7 + 7) - 0.5f);
-            float tipX = (float) (Math.cos(centerAngle) * tipDrift);
-            float tipZ = (float) (Math.sin(centerAngle) * tipDrift);
-            float tipLocalY = realHeightToLocalY(tipRealHeight);
-
-            vert(consumer, mat, baseLx, crownLocalY, baseLz, 1.0f);
-            vert(consumer, mat, baseRx, crownLocalY, baseRz, 1.0f);
-            vert(consumer, mat, tipX, tipLocalY, tipZ, 1.0f);
-
-            vertCount += 3;
-        }
     }
 
-    private static void vert(VertexConsumer consumer, Matrix4f mat, float x, float y, float z, float heightFraction) {
-        consumer.addVertex(mat, x, y, z).setColor(1f, 1f, 1f, heightFraction);
+    private float spikyRadius(float baseRadius, float taper, float heightT, float angle,
+                               float peakStrength, float baseCycle) {
+        float r = baseRadius * (1.0f - taper * (1.0f - heightT));
+
+        // forma da coroa: os picos ficam nos múltiplos de (2π/NUM_PEAKS), os vales na metade entre eles.
+        float lobe = (float) Math.pow(Math.abs(Math.cos(angle * NUM_PEAKS / 2.0)), 3.0);
+
+        // CORREÇÃO: desloca o corte de fase em meio-lóbulo (π/NUM_PEAKS) pra cair
+        // exatamente no VALE (lobe≈0) em vez de na PONTA (lobe≈1) de cada pico.
+        // Sem isso, a fase pula de valor bem no topo do pico, cortando o afunilamento
+        // suave num degrau reto de 90° - o "triângulo retângulo" que você viu.
+        float shiftedAngle = angle + (float) (Math.PI / NUM_PEAKS);
+        float normalized = (shiftedAngle / (float) (2 * Math.PI)) * NUM_PEAKS;
+        int peakBucket = ((int) Math.floor(normalized)) % NUM_PEAKS;
+        if (peakBucket < 0) peakBucket += NUM_PEAKS;
+
+        float peakPhase = peakBucket / (float) NUM_PEAKS;
+        float peakProgress = (baseCycle + peakPhase) % 1.0f;
+        float peakArc = (float) Math.sin(peakProgress * Math.PI);
+
+        float peakGrowth = heightT;
+
+        return r * (1.0f + peakStrength * lobe * peakArc * peakGrowth);
+    }
+
+    private static void vert(VertexConsumer consumer, Matrix4f mat, float x, float y, float z,
+                              float r, float g, float b, float a) {
+        consumer.addVertex(mat, x, y, z).setColor(r, g, b, a);
     }
 }

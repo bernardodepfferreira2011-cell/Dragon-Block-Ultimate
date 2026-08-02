@@ -7,21 +7,8 @@
      "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
     {"name": "ProjMat", "type": "matrix4x4", "count": 16,
      "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
-
-    {"name": "time",      "type": "float", "count": 1, "values": [0.0]},
-    {"name": "intensity", "type": "float", "count": 1, "values": [1.0]},
-
-    {"name": "color1",    "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
-    {"name": "color2",    "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
-    {"name": "colorCore", "type": "float", "count": 3, "values": [1.0, 1.0, 1.0]},
-
-    {"name": "alp1",  "type": "float", "count": 1, "values": [0.9]},
-    {"name": "alp2",  "type": "float", "count": 1, "values": [0.25]},
     {"name": "power", "type": "float", "count": 1, "values": [2.5]},
-    {"name": "divis", "type": "float", "count": 1, "values": [1.0]},
-    {"name": "bloomStrength", "type": "float", "count": 1, "values": [0.6]},
-    {"name": "bodyDensity", "type": "float", "count": 1, "values": [0.5]},
-    {"name": "tipBoostAmount", "type": "float", "count": 1, "values": [1.0]}
+    {"name": "divis", "type": "float", "count": 1, "values": [1.0]}
   ],
   "samplers": [],
   "blend": {

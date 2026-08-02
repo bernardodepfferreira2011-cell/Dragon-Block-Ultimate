@@ -14,7 +14,7 @@ Dragon Ball Mod
 [[dependencies.dragonblockultimate]]
     modId="neoforge"
     type="required"
-    versionRange="[21.1.225,)"
+    versionRange="[21.1.234,)"
     ordering="NONE"
     side="BOTH"
 
