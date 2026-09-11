@@ -8,10 +8,11 @@ import net.dragonultimate.component.ModDataComponents;
 import net.dragonultimate.keybind.KeybindHandler;
 import net.dragonultimate.keybind.ModKeybinds;
 import net.dragonultimate.models.RaceSkin;
-import net.dragonultimate.models.render.AuraRenderLayer;
+import net.dragonultimate.models.render.LightningAuraRenderLayer;
 import net.dragonultimate.save.SaveAuraColor;
 import net.dragonultimate.save.SaveRaceSkin;
-import net.dragonultimate.shader.AuraShaderManager;
+import net.dragonultimate.shader.BloomPipeline;
+import net.dragonultimate.shader.LightShaderManager;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.client.resources.PlayerSkin;
 import net.neoforged.api.distmarker.Dist;
@@ -46,6 +47,7 @@ public class DragonBlockUltimate {
 
         NeoForge.EVENT_BUS.register(this);
         NeoForge.EVENT_BUS.addListener(KeybindHandler::onClientTick);
+        NeoForge.EVENT_BUS.addListener(BloomPipeline::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(SaveRaceSkin::onPlayerClone);
         NeoForge.EVENT_BUS.addListener(SaveRaceSkin::onPlayerRespawn);
     }
@@ -62,8 +64,9 @@ public class DragonBlockUltimate {
         public static void onClientSetup(FMLClientSetupEvent event) {}
 
         @SubscribeEvent
-        public static void onRegisterShaders(net.neoforged.neoforge.client.event.RegisterShadersEvent event) throws java.io.IOException {
-            AuraShaderManager.onRegisterShaders(event);
+        public static void onRegisterShaders(net.neoforged.neoforge.client.event.RegisterShadersEvent event)
+            throws java.io.IOException {
+            LightShaderManager.register(event);
         }
 
         @SubscribeEvent
@@ -75,11 +78,9 @@ public class DragonBlockUltimate {
         public static void onAddLayers(EntityRenderersEvent.AddLayers event) {
             for (PlayerSkin.Model skin : event.getSkins()) {
                 PlayerRenderer renderer = event.getSkin(skin);
-                if (renderer == null) continue;
-                renderer.addLayer(new AuraRenderLayer(renderer));
-                // RaceSkinRender removido - a troca de textura agora acontece
-                // direto na fonte via PlayerSkinMixin (getSkin()).
+                if (renderer != null) renderer.addLayer(new LightningAuraRenderLayer(renderer));
             }
         }
+
     }
 }
