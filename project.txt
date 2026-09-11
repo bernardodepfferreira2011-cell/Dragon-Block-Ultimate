@@ -1,0 +1,4387 @@
+# Conteudo textual de src
+# Arquivos .png excluidos
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\block\LightDirtyBlock.java
+================================================================================
+package net.dragonultimate.block;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
+
+public class LightDirtyBlock extends Block {
+    public LightDirtyBlock() {
+        super(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.STONE)
+                .strength(1.0F, 1.0F)
+                .sound(SoundType.STONE));
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\block\NamekGrassBlock.java
+================================================================================
+package net.dragonultimate.block;
+
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
+
+public class NamekGrassBlock extends Block {
+    public NamekGrassBlock() {
+        super(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.GRASS)
+                .strength(0.6F, 0.6F)
+                .sound(SoundType.GRASS));
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\block\NamekLeafBlock.java
+================================================================================
+package net.dragonultimate.block;
+
+import net.minecraft.world.level.block.LeavesBlock;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
+
+public class NamekLeafBlock extends LeavesBlock {
+    public NamekLeafBlock() {
+        super(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.PLANT)
+                .strength(0.3F, 0.3F)
+                .sound(SoundType.GRASS)
+                .noOcclusion());
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\block\NamekLogBlock.java
+================================================================================
+package net.dragonultimate.block;
+
+import net.minecraft.world.level.block.RotatedPillarBlock;
+import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.material.MapColor;
+
+public class NamekLogBlock extends RotatedPillarBlock {
+    public NamekLogBlock() {
+        super(BlockBehaviour.Properties.of()
+                .mapColor(MapColor.WOOD)
+                .strength(2.0F, 2.0F)
+                .sound(SoundType.WOOD));
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\block\NamekSaplingBlock.java
+================================================================================
+package net.dragonultimate.block;
+
+import net.dragonultimate.ModBlocks;
+import net.dragonultimate.worldgen.tree.ModTreeGrowers;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.SaplingBlock;
+import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
+
+public class NamekSaplingBlock extends SaplingBlock {
+    public NamekSaplingBlock() {
+        super(ModTreeGrowers.NAMEKWOOD, BlockBehaviour.Properties.of()
+                .strength(0.2F, 0.2F)
+                .instabreak()
+                .noOcclusion());
+    }
+
+    @Override
+    protected boolean mayPlaceOn(BlockState state, BlockGetter level, BlockPos pos) {
+        return state.is(ModBlocks.NAMEK_GRASS.get()) || state.is(ModBlocks.LIGHT_DIRTY.get());
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\component\ModDataComponents.java
+================================================================================
+package net.dragonultimate.component;
+
+import java.util.function.UnaryOperator;
+import net.dragonultimate.DragonBlockUltimate;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.Registries;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.bus.api.IEventBus;
+
+public class ModDataComponents {
+
+    public static final DeferredRegister<DataComponentType<?>> DATA_COMPONENT_TYPES =
+        DeferredRegister.create(Registries.DATA_COMPONENT_TYPE, DragonBlockUltimate.MOD_ID);
+
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<BlockPos>> CORDINATES =
+        register("coordinates", builder -> builder.persistent(BlockPos.CODEC));
+
+    private static <T> DeferredHolder<DataComponentType<?>, DataComponentType<T>> register(
+            String name, UnaryOperator<DataComponentType.Builder<T>> builderOperator) {
+        return DATA_COMPONENT_TYPES.register(name, () -> builderOperator.apply(DataComponentType.builder()).build());
+    }
+
+    public static void register(IEventBus eventBus) {
+        DATA_COMPONENT_TYPES.register(eventBus);
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\datagen\DBUDataGen.java
+================================================================================
+package net.dragonultimate.datagen;
+
+
+public class DBUDataGen {
+    
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\DragonBlockUltimate.java
+================================================================================
+package net.dragonultimate;
+
+import org.slf4j.Logger;
+
+import com.mojang.logging.LogUtils;
+
+import net.dragonultimate.component.ModDataComponents;
+import net.dragonultimate.keybind.KeybindHandler;
+import net.dragonultimate.keybind.ModKeybinds;
+import net.dragonultimate.models.RaceSkin;
+import net.dragonultimate.models.render.LightningAuraRenderLayer;
+import net.dragonultimate.save.SaveAuraColor;
+import net.dragonultimate.save.SaveRaceSkin;
+import net.dragonultimate.shader.BloomPipeline;
+import net.dragonultimate.shader.LightShaderManager;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
+import net.minecraft.client.resources.PlayerSkin;
+import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+
+@Mod(DragonBlockUltimate.MOD_ID)
+public class DragonBlockUltimate {
+    public static final String MOD_ID = "dragonblockultimate";
+    public static final Logger LOGGER = LogUtils.getLogger();
+
+    public DragonBlockUltimate(IEventBus modEventBus, ModContainer modContainer) {
+        modEventBus.addListener(this::commonSetup);
+
+        ModBlocks.register(modEventBus);
+        ModItems.register(modEventBus);
+        ModCreativeTabs.register(modEventBus);
+        ModConfiguredFeatures.register(modEventBus);
+        ModDataComponents.register(modEventBus);
+        SaveRaceSkin.ATTACHMENT_TYPES.register(modEventBus);
+        SaveAuraColor.ATTACHMENT_TYPES.register(modEventBus);
+
+        modEventBus.addListener(ModKeybinds::register);
+
+        NeoForge.EVENT_BUS.register(this);
+        NeoForge.EVENT_BUS.addListener(KeybindHandler::onClientTick);
+        NeoForge.EVENT_BUS.addListener(BloomPipeline::onRenderLevelStage);
+        NeoForge.EVENT_BUS.addListener(SaveRaceSkin::onPlayerClone);
+        NeoForge.EVENT_BUS.addListener(SaveRaceSkin::onPlayerRespawn);
+    }
+
+    private void commonSetup(final FMLCommonSetupEvent event) {}
+
+    @SubscribeEvent
+    public void onServerStarting(ServerStartingEvent event) {}
+
+    @EventBusSubscriber(modid = MOD_ID, value = Dist.CLIENT)
+    public static class ClientModEvents {
+
+        @SubscribeEvent
+        public static void onClientSetup(FMLClientSetupEvent event) {}
+
+        @SubscribeEvent
+        public static void onRegisterShaders(net.neoforged.neoforge.client.event.RegisterShadersEvent event)
+            throws java.io.IOException {
+            LightShaderManager.register(event);
+        }
+
+        @SubscribeEvent
+        public static void onRegisterLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
+            event.registerLayerDefinition(RaceSkin.LAYER, RaceSkin::createBodyLayer);
+        }
+
+        @SubscribeEvent
+        public static void onAddLayers(EntityRenderersEvent.AddLayers event) {
+            for (PlayerSkin.Model skin : event.getSkins()) {
+                PlayerRenderer renderer = event.getSkin(skin);
+                if (renderer != null) renderer.addLayer(new LightningAuraRenderLayer(renderer));
+            }
+        }
+
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\item\CustomFoodItem.java
+================================================================================
+package net.dragonultimate.item;
+
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+
+public class CustomFoodItem extends Item {
+    private final float healPercent;
+    private final int hungerBars;
+
+    public CustomFoodItem(FoodProperties foodProperties, float healPercent, int hungerBars) {
+        super(new Item.Properties().food(foodProperties));
+        this.healPercent = healPercent;
+        this.hungerBars = hungerBars;
+    }
+
+    @Override
+    public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity livingEntity) {
+        ItemStack result = super.finishUsingItem(stack, level, livingEntity);
+
+        if (healPercent > 0.0F) {
+            float amount = livingEntity.getMaxHealth() * healPercent;
+            livingEntity.heal(amount);
+        }
+
+        if (livingEntity instanceof Player player && hungerBars > 0) {
+            player.getFoodData().eat(hungerBars * 2, 20.0F);
+        }
+
+        return result;
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\item\SenzuItem.java
+================================================================================
+package net.dragonultimate.item;
+
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
+
+public class SenzuItem extends Item {
+    public SenzuItem() {
+        super(new Item.Properties()
+                .stacksTo(16)
+                .food(new FoodProperties.Builder()
+                        .nutrition(20)
+                        .saturationModifier(2.0F)
+                        .build()));
+    }
+
+    @Override
+    public ItemStack finishUsingItem(ItemStack stack, Level level, LivingEntity livingEntity) {
+        ItemStack result = super.finishUsingItem(stack, level, livingEntity);
+
+        livingEntity.heal(livingEntity.getMaxHealth());
+
+        if (livingEntity instanceof Player player) {
+            player.getFoodData().eat(20, 20.0F);
+            player.removeAllEffects();
+            player.getCooldowns().removeCooldown(this);
+        }
+        return result;
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\keybind\KeybindHandler.java
+================================================================================
+package net.dragonultimate.keybind;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
+import net.dragonultimate.screen.MenuInicial;
+import net.dragonultimate.shader.AuraState;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+
+public class KeybindHandler {
+
+    public static void onClientTick(ClientTickEvent.Post event) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+
+        AuraState.tick();
+
+        // === TESTE DE REFERENCIA -- particula vanilla em altura conhecida ===
+        // END_ROD exatamente 2 blocos acima dos pes do jogador, em
+        // coordenada de MUNDO (zero ambiguidade). So aparece enquanto a
+        // aura de teste esta ativa. Serve pra comparar contra onde o
+        // marcador magenta da nossa geometria aparece na mesma altura.
+        if (AuraState.isActive() && mc.level != null && mc.player.tickCount % 20 == 0) {
+            mc.level.addParticle(
+                ParticleTypes.END_ROD,
+                mc.player.getX(), mc.player.getY() + 2.0, mc.player.getZ(),
+                0.0, 0.0, 0.0
+            );
+        }
+        // === FIM TESTE ===
+
+        while (ModKeybinds.OPEN_MENU.consumeClick()) {
+            mc.setScreen(new MenuInicial(
+                mc.player,
+                mc.player.getInventory(),
+                Component.literal("Menu")
+            ));
+        }
+
+        while (ModKeybinds.TOGGLE_AURA.consumeClick()) {
+            AuraState.toggle();
+            mc.player.displayClientMessage(
+                Component.literal(AuraState.isActive() ? "Aura: ATIVADA" : "Aura: DESATIVADA"),
+                true
+            );
+        }
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\keybind\ModKeybinds.java
+================================================================================
+package net.dragonultimate.keybind;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.KeyMapping;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+
+public class ModKeybinds {
+
+    public static final KeyMapping OPEN_MENU = new KeyMapping(
+            "key.dragonblockultimate.open_menu",
+            InputConstants.Type.KEYSYM,
+            InputConstants.KEY_V,
+            "key.categories.dragonblockultimate"
+    );
+
+    public static final KeyMapping TOGGLE_AURA = new KeyMapping(
+            "key.dragonblockultimate.toggle_aura",
+            InputConstants.Type.KEYSYM,
+            InputConstants.KEY_G,
+            "key.categories.dragonblockultimate"
+    );
+
+    public static void register(RegisterKeyMappingsEvent event) {
+        event.register(OPEN_MENU);
+        event.register(TOGGLE_AURA);
+    }
+
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\mixin\PlayerSkinMixin.java
+================================================================================
+package net.dragonultimate.mixin;
+
+import net.dragonultimate.DragonBlockUltimate;
+import net.dragonultimate.save.SaveRaceSkin;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.resources.ResourceLocation;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(AbstractClientPlayer.class)
+public abstract class PlayerSkinMixin {
+
+    @Inject(method = "getSkin", at = @At("RETURN"), cancellable = true)
+    private void dragonblockultimate$overrideSkin(CallbackInfoReturnable<PlayerSkin> cir) {
+        AbstractClientPlayer self = (AbstractClientPlayer) (Object) this;
+
+        SaveRaceSkin.RaceData data = SaveRaceSkin.getRaceData(self);
+        if (!data.raceName().equals("Sayajin")) return;
+
+        PlayerSkin original = cir.getReturnValue();
+
+        ResourceLocation customTexture = ResourceLocation.fromNamespaceAndPath(
+            DragonBlockUltimate.MOD_ID, data.texturePath()
+        );
+
+        PlayerSkin overridden = new PlayerSkin(
+            customTexture,
+            original.textureUrl(),
+            original.capeTexture(),
+            original.elytraTexture(),
+            original.model(),
+            original.secure()
+        );
+
+        cir.setReturnValue(overridden);
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\ModBlocks.java
+================================================================================
+package net.dragonultimate;
+
+import net.dragonultimate.block.LightDirtyBlock;
+import net.dragonultimate.block.NamekGrassBlock;
+import net.dragonultimate.block.NamekLeafBlock;
+import net.dragonultimate.block.NamekLogBlock;
+import net.dragonultimate.block.NamekSaplingBlock;
+import net.minecraft.world.level.block.Block;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+import static net.minecraft.core.registries.Registries.BLOCK;
+
+public class ModBlocks {
+    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(BLOCK, DragonBlockUltimate.MOD_ID);
+
+    public static final DeferredHolder<Block, Block> NAMEK_GRASS = BLOCKS.register("namek_grass", NamekGrassBlock::new);
+    public static final DeferredHolder<Block, Block> NAMEK_LEAVE = BLOCKS.register("namek_leave", NamekLeafBlock::new);
+    public static final DeferredHolder<Block, Block> NAMEK_LOG = BLOCKS.register("namek_log", NamekLogBlock::new);
+    public static final DeferredHolder<Block, Block> NAMEK_SAPLING = BLOCKS.register("namek_sapling", NamekSaplingBlock::new);
+    public static final DeferredHolder<Block, Block> LIGHT_DIRTY = BLOCKS.register("light_dirty", LightDirtyBlock::new);
+
+    public static void register(IEventBus eventBus) {
+        BLOCKS.register(eventBus);
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\ModConfiguredFeatures.java
+================================================================================
+package net.dragonultimate;
+
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.valueproviders.ConstantInt;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
+import net.minecraft.world.level.levelgen.feature.Feature;
+import net.minecraft.world.level.levelgen.feature.configurations.TreeConfiguration;
+import net.minecraft.world.level.levelgen.feature.featuresize.TwoLayersFeatureSize;
+import net.minecraft.world.level.levelgen.feature.foliageplacers.BlobFoliagePlacer;
+import net.minecraft.world.level.levelgen.feature.stateproviders.BlockStateProvider;
+import net.minecraft.world.level.levelgen.feature.trunkplacers.StraightTrunkPlacer;
+import net.minecraft.world.level.levelgen.placement.BiomeFilter;
+import net.minecraft.world.level.levelgen.placement.HeightmapPlacement;
+import net.minecraft.world.level.levelgen.placement.InSquarePlacement;
+import net.minecraft.world.level.levelgen.placement.PlacedFeature;
+import net.minecraft.world.level.levelgen.placement.PlacementModifier;
+import net.minecraft.world.level.levelgen.placement.RarityFilter;
+import net.minecraft.world.level.levelgen.placement.SurfaceWaterDepthFilter;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+import java.util.List;
+
+public class ModConfiguredFeatures {
+
+    public static final DeferredRegister<ConfiguredFeature<?, ?>> CONFIGURED_FEATURES =
+            DeferredRegister.create(Registries.CONFIGURED_FEATURE, DragonBlockUltimate.MOD_ID);
+
+    public static final DeferredRegister<PlacedFeature> PLACED_FEATURES =
+            DeferredRegister.create(Registries.PLACED_FEATURE, DragonBlockUltimate.MOD_ID);
+
+    public static final ResourceKey<ConfiguredFeature<?, ?>> NAMEK_TREE_KEY =
+            ResourceKey.create(Registries.CONFIGURED_FEATURE,
+                    ResourceLocation.fromNamespaceAndPath(DragonBlockUltimate.MOD_ID, "namek_tree"));
+
+    public static final DeferredHolder<ConfiguredFeature<?, ?>, ConfiguredFeature<?, ?>> NAMEK_TREE =
+            CONFIGURED_FEATURES.register(NAMEK_TREE_KEY.location().getPath(), () -> new ConfiguredFeature<>(
+                    Feature.TREE, new TreeConfiguration.TreeConfigurationBuilder(
+                            BlockStateProvider.simple(ModBlocks.NAMEK_LOG.get().defaultBlockState()),
+                            new StraightTrunkPlacer(5, 2, 0),
+                            BlockStateProvider.simple(ModBlocks.NAMEK_LEAVE.get().defaultBlockState()),
+                            new BlobFoliagePlacer(ConstantInt.of(3), ConstantInt.of(0), 3),
+                            new TwoLayersFeatureSize(3, 0, 1)
+                    )
+                    .dirt(BlockStateProvider.simple(ModBlocks.NAMEK_GRASS.get().defaultBlockState()))
+                    .build()
+            ));
+
+    public static final DeferredHolder<PlacedFeature, PlacedFeature> NAMEK_TREE_PLACED =
+            PLACED_FEATURES.register("namek_tree", () -> new PlacedFeature(
+                    Holder.direct(NAMEK_TREE.get()),
+                    List.<PlacementModifier>of(
+                            RarityFilter.onAverageOnceEvery(6),
+                            InSquarePlacement.spread(),
+                            SurfaceWaterDepthFilter.forMaxDepth(0),
+                            HeightmapPlacement.onHeightmap(Heightmap.Types.OCEAN_FLOOR),
+                            BiomeFilter.biome()
+                    )
+            ));
+
+    public static void register(IEventBus eventBus) {
+        CONFIGURED_FEATURES.register(eventBus);
+        PLACED_FEATURES.register(eventBus);
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\ModCreativeTabs.java
+================================================================================
+package net.dragonultimate;
+
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+public class ModCreativeTabs {
+    public static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, DragonBlockUltimate.MOD_ID);
+
+    public static final DeferredHolder<CreativeModeTab, CreativeModeTab> DRAGON_BLOCK_ULTIMATE = TABS.register("dragon_block_ultimate", () -> CreativeModeTab.builder()
+            .title(Component.translatable("itemGroup.dragonblockultimate"))
+            .icon(() -> new ItemStack(ModItems.NAMEK_GRASS.get()))
+            .displayItems((parameters, output) -> {
+                output.accept(ModItems.NAMEK_GRASS.get());
+                output.accept(ModItems.NAMEK_LEAVE.get());
+                output.accept(ModItems.NAMEK_LOG.get());
+                output.accept(ModItems.NAMEK_SAPLING.get());
+                output.accept(ModItems.LIGHT_DIRTY.get());
+                output.accept(ModItems.DINO_MEAT.get());
+                output.accept(ModItems.DINO_MEAT_COOKED.get());
+                output.accept(ModItems.SENZU.get());
+            })
+            .build());
+
+    public static void register(IEventBus eventBus) {
+        TABS.register(eventBus);
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\models\RaceSkin.java
+================================================================================
+package net.dragonultimate.models;
+
+import net.dragonultimate.DragonBlockUltimate;
+import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.geom.ModelLayerLocation;
+import net.minecraft.client.model.geom.ModelPart;
+import net.minecraft.client.model.geom.PartPose;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.CubeListBuilder;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.model.geom.builders.MeshDefinition;
+import net.minecraft.client.model.geom.builders.PartDefinition;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Player;
+
+public class RaceSkin extends HumanoidModel<Player> {
+
+    public static final ModelLayerLocation LAYER = new ModelLayerLocation(
+        ResourceLocation.fromNamespaceAndPath(DragonBlockUltimate.MOD_ID, "race_skin"), "main"
+    );
+
+    public static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(
+        DragonBlockUltimate.MOD_ID, "textures/cc/sayan1"
+    );
+
+    public RaceSkin(ModelPart root) {
+        super(root);
+    }
+
+    public static LayerDefinition createBodyLayer() {
+        MeshDefinition mesh = new MeshDefinition();
+        PartDefinition part = mesh.getRoot();
+
+        // Textura 512x512 - escala UV dobrada em relação ao padrão 64x64
+        PartDefinition Root = part.addOrReplaceChild("body",
+            CubeListBuilder.create().texOffs(64, 32).addBox(
+                -4.0F, 0.0F, -2.0F, 8.0F, 12.0F, 4.0F,
+                new CubeDeformation(0.0F)),
+            PartPose.offset(0.0F, 0.0F, 0.0F));
+
+        part.addOrReplaceChild("head",
+            CubeListBuilder.create().texOffs(0, 0).addBox(
+                -4.0F, -8.0F, -4.0F, 8.0F, 8.0F, 8.0F,
+                new CubeDeformation(0.0F)),
+            PartPose.offset(0.0F, 0.0F, 0.0F));
+
+        part.addOrReplaceChild("hat",
+            CubeListBuilder.create().texOffs(128, 0).addBox(
+                -4.0F, -8.0F, -4.0F, 8.0F, 8.0F, 8.0F,
+                new CubeDeformation(0.5F)),
+            PartPose.offset(0.0F, 0.0F, 0.0F));
+
+        part.addOrReplaceChild("left_arm",
+            CubeListBuilder.create().texOffs(128, 64).addBox(
+                -1.0F, -2.0F, -2.0F, 4.0F, 12.0F, 4.0F,
+                new CubeDeformation(0.0F)),
+            PartPose.offset(5.0F, 2.0F, 0.0F));
+
+        part.addOrReplaceChild("right_arm",
+            CubeListBuilder.create().texOffs(64, 64).addBox(
+                -3.0F, -2.0F, -2.0F, 4.0F, 12.0F, 4.0F,
+                new CubeDeformation(0.0F)),
+            PartPose.offset(-5.0F, 2.0F, 0.0F));
+
+        part.addOrReplaceChild("left_leg",
+            CubeListBuilder.create().texOffs(64, 96).addBox(
+                -2.0F, 0.0F, -2.0F, 4.0F, 12.0F, 4.0F,
+                new CubeDeformation(0.0F)),
+            PartPose.offset(1.9F, 12.0F, 0.0F));
+
+        part.addOrReplaceChild("right_leg",
+            CubeListBuilder.create().texOffs(0, 96).addBox(
+                -2.0F, 0.0F, -2.0F, 4.0F, 12.0F, 4.0F,
+                new CubeDeformation(0.0F)),
+            PartPose.offset(-1.9F, 12.0F, 0.0F));
+        
+      /* part.addOrReplacrChild("Tail",
+     *      CubeListBuilder.create().texOffs(0, 128).addBox(
+     *         -1.0F, 0.0F, -1.0F, 2.0F, 12.0F, 2.0F,
+     *           new CubeDeformation(0.0F)),
+     *       PartPose.offset(0.0F, 12.0F, 2.0F)
+            ); */
+
+        return LayerDefinition.create(mesh, 512, 512);
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\models\render\LightningAuraRenderLayer.java
+================================================================================
+package net.dragonultimate.models.render;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.dragonultimate.save.SaveAuraColor;
+import net.dragonultimate.shader.AuraState;
+import net.dragonultimate.shader.LightRenderTypes;
+import net.dragonultimate.shader.LightShaderManager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Camera;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
+public class LightningAuraRenderLayer
+    extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
+
+    private static final int ITERATIONS = 4;
+    private static final float BRANCH_CHANCE = 0.34f;
+    private static final float BASE_WIDTH = 0.045f;
+    private static final float HEIGHT = 2.45f;
+
+    public LightningAuraRenderLayer(
+        RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
+        super(parent);
+    }
+
+    @Override
+    public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
+                       AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
+                       float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+        if (!AuraState.isActive() || LightShaderManager.getShader() == null) return;
+
+        SaveAuraColor.AuraColorData colors = SaveAuraColor.getAuraColor(player);
+        float[] color = colors.outerArray();
+        long seed = player.getUUID().getMostSignificantBits()
+            ^ player.getUUID().getLeastSignificantBits()
+            ^ (long) (ageInTicks * 2.0f);
+        Random random = new Random(seed);
+
+        Vector3f start = new Vector3f(0.0f, 0.05f, 0.0f);
+        Vector3f end = new Vector3f(0.0f, HEIGHT, 0.0f);
+        List<Branch> branches = new ArrayList<>();
+        generateBranches(start, end, ITERATIONS, HEIGHT * 0.28f,
+            BRANCH_CHANCE, random, 1.0f, branches);
+
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Vec3 cameraPosition = camera.getPosition();
+        Vec3 playerPosition = player.position();
+        Vector3f cameraVector = new Vector3f(
+            (float) (cameraPosition.x - playerPosition.x),
+            (float) (cameraPosition.y - playerPosition.y),
+            (float) (cameraPosition.z - playerPosition.z)
+        );
+
+        VertexConsumer consumer = buffer.getBuffer(LightRenderTypes.lightning());
+        Matrix4f matrix = poseStack.last().pose();
+        for (Branch branch : branches) {
+            renderBranch(consumer, matrix, branch, cameraVector,
+                color[0], color[1], color[2], AuraState.getIntensity());
+        }
+    }
+
+    private static void generateBranches(Vector3f start, Vector3f end, int iterations,
+                                         float displacement, float branchChance, Random random,
+                                         float intensity, List<Branch> output) {
+        Branch branch = new Branch(intensity);
+        subdivide(start, end, iterations, displacement, branchChance, random, branch, output);
+    }
+
+    private static void subdivide(Vector3f start, Vector3f end, int iterations,
+                                  float displacement, float branchChance, Random random,
+                                  Branch branch, List<Branch> output) {
+        if (iterations <= 0) {
+            branch.segments.add(new Segment(new Vector3f(start), new Vector3f(end)));
+            if (!output.contains(branch)) output.add(branch);
+            return;
+        }
+
+        Vector3f direction = new Vector3f(end).sub(start);
+        float length = direction.length();
+        direction.normalize();
+
+        Vector3f offsetDirection = randomUnitVector(random);
+        offsetDirection.sub(new Vector3f(direction).mul(offsetDirection.dot(direction)));
+        if (offsetDirection.lengthSquared() < 0.0001f) {
+            offsetDirection = new Vector3f(direction).cross(0.0f, 1.0f, 0.0f);
+        }
+        offsetDirection.normalize();
+
+        Vector3f midpoint = new Vector3f(start).add(end).mul(0.5f);
+        midpoint.add(offsetDirection.mul((random.nextFloat() * 2.0f - 1.0f) * displacement));
+
+        subdivide(start, midpoint, iterations - 1, displacement * 0.5f,
+            branchChance * 0.7f, random, branch, output);
+        subdivide(midpoint, end, iterations - 1, displacement * 0.5f,
+            branchChance * 0.7f, random, branch, output);
+
+        if (random.nextFloat() < branchChance) {
+            Vector3f branchDirection = randomUnitVector(random);
+            branchDirection.mul(length * (0.32f + random.nextFloat() * 0.28f));
+            Vector3f branchEnd = new Vector3f(midpoint).add(branchDirection);
+            Branch child = new Branch(branch.intensity * (0.55f + random.nextFloat() * 0.2f));
+            subdivide(midpoint, branchEnd, iterations - 1, displacement * 0.5f,
+                branchChance * 0.7f, random, child, output);
+        }
+    }
+
+    private static Vector3f randomUnitVector(Random random) {
+        float z = random.nextFloat() * 2.0f - 1.0f;
+        float angle = random.nextFloat() * (float) (Math.PI * 2.0);
+        float radius = (float) Math.sqrt(Math.max(0.0f, 1.0f - z * z));
+        return new Vector3f(
+            radius * (float) Math.cos(angle),
+            radius * (float) Math.sin(angle),
+            z
+        );
+    }
+
+    private static void renderBranch(VertexConsumer consumer, Matrix4f matrix, Branch branch,
+                                     Vector3f cameraVector, float r, float g, float b,
+                                     float auraIntensity) {
+        int segmentCount = Math.max(1, branch.segments.size());
+        for (int index = 0; index < segmentCount; index++) {
+            Segment segment = branch.segments.get(index);
+            Vector3f direction = new Vector3f(segment.end).sub(segment.start).normalize();
+            Vector3f billboard = new Vector3f(direction).cross(cameraVector);
+            if (billboard.lengthSquared() < 0.0001f) {
+                billboard = new Vector3f(direction).cross(0.0f, 1.0f, 0.0f);
+            }
+            billboard.normalize();
+
+            float fade = 1.0f - (index / (float) segmentCount) * 0.72f;
+            float alpha = Math.min(1.0f, auraIntensity * branch.intensity * fade);
+            float width = BASE_WIDTH * (0.55f + branch.intensity * 0.75f) * fade;
+            billboard.mul(width);
+
+            Vector3f a = new Vector3f(segment.start).add(billboard);
+            Vector3f bPoint = new Vector3f(segment.start).sub(billboard);
+            Vector3f c = new Vector3f(segment.end).sub(billboard);
+            Vector3f d = new Vector3f(segment.end).add(billboard);
+
+            vertex(consumer, matrix, a, r, g, b, alpha);
+            vertex(consumer, matrix, bPoint, r, g, b, alpha);
+            vertex(consumer, matrix, c, r, g, b, alpha * 0.72f);
+            vertex(consumer, matrix, d, r, g, b, alpha * 0.72f);
+        }
+    }
+
+    private static void vertex(VertexConsumer consumer, Matrix4f matrix, Vector3f position,
+                               float r, float g, float b, float alpha) {
+        consumer.addVertex(matrix, position.x, position.y, position.z)
+            .setColor(r, g, b, alpha);
+    }
+
+    private static final class Branch {
+        private final float intensity;
+        private final List<Segment> segments = new ArrayList<>();
+
+        private Branch(float intensity) {
+            this.intensity = intensity;
+        }
+    }
+
+    private record Segment(Vector3f start, Vector3f end) {}
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\models\render\RaceSkinRender.java
+================================================================================
+package net.dragonultimate.models.render;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.dragonultimate.models.RaceSkin;
+import net.dragonultimate.save.SaveRaceSkin;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.RenderLayerParent;
+import net.minecraft.client.renderer.entity.layers.RenderLayer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.dragonultimate.DragonBlockUltimate;
+
+public class RaceSkinRender extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
+
+    private final RaceSkin model;
+    private static long lastDebug = 0L;
+
+    public RaceSkinRender(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent, RaceSkin model) {
+        super(parent);
+        this.model = model;
+    }
+
+    @Override
+    public void render(PoseStack poseStack, MultiBufferSource buffer, int packedLight,
+                       AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
+                       float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+
+        SaveRaceSkin.RaceData data = SaveRaceSkin.getRaceData(player);
+
+        // DEBUG - remover depois: mostra no actionbar a cada 2s o que esse render le
+        long now = System.currentTimeMillis();
+        if (now - lastDebug > 2000) {
+            lastDebug = now;
+            player.displayClientMessage(Component.literal(
+                "[DEBUG render] raceName=" + data.raceName() + " texture=" + data.texturePath()
+            ), true);
+        }
+
+        if (!data.raceName().equals("Sayajin")) return;
+
+        ResourceLocation texture = ResourceLocation.fromNamespaceAndPath(
+            DragonBlockUltimate.MOD_ID, data.texturePath()
+        );
+
+        PlayerModel<AbstractClientPlayer> parentModel = this.getParentModel();
+        this.model.head.copyFrom(parentModel.head);
+        this.model.hat.copyFrom(parentModel.hat);
+        this.model.body.copyFrom(parentModel.body);
+        this.model.leftArm.copyFrom(parentModel.leftArm);
+        this.model.rightArm.copyFrom(parentModel.rightArm);
+        this.model.leftLeg.copyFrom(parentModel.leftLeg);
+        this.model.rightLeg.copyFrom(parentModel.rightLeg);
+
+        var vertexConsumer = buffer.getBuffer(RenderType.entityTranslucent(texture));
+        this.model.renderToBuffer(poseStack, vertexConsumer, packedLight, OverlayTexture.NO_OVERLAY);
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\ModItems.java
+================================================================================
+package net.dragonultimate;
+
+import net.dragonultimate.item.CustomFoodItem;
+import net.dragonultimate.item.SenzuItem;
+import net.minecraft.world.food.FoodProperties;
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.registries.DeferredHolder;
+import net.neoforged.neoforge.registries.DeferredRegister;
+
+import static net.minecraft.core.registries.Registries.ITEM;
+
+public class ModItems {
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ITEM, DragonBlockUltimate.MOD_ID);
+
+    public static final DeferredHolder<Item, Item> NAMEK_GRASS = ITEMS.register("namek_grass",
+            () -> new BlockItem(ModBlocks.NAMEK_GRASS.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, Item> NAMEK_LEAVE = ITEMS.register("namek_leave",
+            () -> new BlockItem(ModBlocks.NAMEK_LEAVE.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, Item> NAMEK_LOG = ITEMS.register("namek_log",
+            () -> new BlockItem(ModBlocks.NAMEK_LOG.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, Item> NAMEK_SAPLING = ITEMS.register("namek_sapling",
+            () -> new BlockItem(ModBlocks.NAMEK_SAPLING.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, Item> LIGHT_DIRTY = ITEMS.register("light_dirty",
+            () -> new BlockItem(ModBlocks.LIGHT_DIRTY.get(), new Item.Properties()));
+
+    public static final DeferredHolder<Item, Item> DINO_MEAT = ITEMS.register("dino_meat",
+            () -> new CustomFoodItem(new FoodProperties.Builder()
+                    .nutrition(4)
+                    .saturationModifier(0.3F)
+                    .build(), 0.15F, 2));
+
+    public static final DeferredHolder<Item, Item> DINO_MEAT_COOKED = ITEMS.register("dino_meat_cooked",
+            () -> new CustomFoodItem(new FoodProperties.Builder()
+                    .nutrition(8)
+                    .saturationModifier(0.6F)
+                    .build(), 0.30F, 4));
+
+    public static final DeferredHolder<Item, Item> SENZU = ITEMS.register("senzu", SenzuItem::new);
+
+    public static void register(IEventBus eventBus) {
+        ITEMS.register(eventBus);
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\save\SaveAuraColor.java
+================================================================================
+package net.dragonultimate.save;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.dragonultimate.DragonBlockUltimate;
+import net.minecraft.world.entity.player.Player;
+import net.neoforged.neoforge.attachment.AttachmentType;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
+
+import java.util.function.Supplier;
+
+public class SaveAuraColor {
+
+    public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES =
+        DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, DragonBlockUltimate.MOD_ID);
+
+    public static final Supplier<AttachmentType<AuraColorData>> AURA_COLOR =
+        ATTACHMENT_TYPES.register("aura_color", () ->
+            AttachmentType.builder(() -> new AuraColorData(
+                1.0f, 1.0f, 1.0f,  // inner: branco (padrão)
+                1.0f, 1.0f, 1.0f   // outer: branco (padrão)
+            ))
+            .serialize(AuraColorData.CODEC)
+            .copyOnDeath()
+            .build()
+        );
+
+    public static AuraColorData getAuraColor(Player player) {
+        return player.getData(AURA_COLOR);
+    }
+
+    public static void setAuraColor(Player player,
+            float ir, float ig, float ib,
+            float or, float og, float ob) {
+        player.setData(AURA_COLOR, new AuraColorData(ir, ig, ib, or, og, ob));
+    }
+
+    public record AuraColorData(
+        float innerR, float innerG, float innerB,
+        float outerR, float outerG, float outerB
+    ) {
+        public static final Codec<AuraColorData> CODEC = RecordCodecBuilder.create(i ->
+            i.group(
+                Codec.FLOAT.fieldOf("inner_r").forGetter(AuraColorData::innerR),
+                Codec.FLOAT.fieldOf("inner_g").forGetter(AuraColorData::innerG),
+                Codec.FLOAT.fieldOf("inner_b").forGetter(AuraColorData::innerB),
+                Codec.FLOAT.fieldOf("outer_r").forGetter(AuraColorData::outerR),
+                Codec.FLOAT.fieldOf("outer_g").forGetter(AuraColorData::outerG),
+                Codec.FLOAT.fieldOf("outer_b").forGetter(AuraColorData::outerB)
+            ).apply(i, AuraColorData::new)
+        );
+
+        public float[] innerArray() { return new float[]{innerR, innerG, innerB}; }
+        public float[] outerArray() { return new float[]{outerR, outerG, outerB}; }
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\save\SaveRaceSkin.java
+================================================================================
+package net.dragonultimate.save;
+
+import java.util.function.Supplier;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+
+import net.dragonultimate.DragonBlockUltimate;
+import net.minecraft.world.entity.player.Player;
+import net.neoforged.neoforge.attachment.AttachmentType;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.registries.DeferredRegister;
+import net.neoforged.neoforge.registries.NeoForgeRegistries;
+
+public class SaveRaceSkin {
+
+    public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES =
+        DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, DragonBlockUltimate.MOD_ID);
+
+    public static final Supplier<AttachmentType<RaceData>> RACE_DATA =
+        ATTACHMENT_TYPES.register("race_data", () ->
+            AttachmentType.builder(() -> new RaceData("default", "textures/cc/body2sayan.png"))
+                .serialize(RaceData.CODEC)
+                .copyOnDeath()
+                .build()
+        );
+
+    public static RaceData getRaceData(Player player) {
+        return player.getData(RACE_DATA);
+    }
+
+    public static void setRaceData(Player player, String raceName, String texturePath) {
+        player.setData(RACE_DATA, new RaceData(raceName, texturePath));
+    }
+
+    public static void onPlayerClone(PlayerEvent.Clone event) {
+        if (event.isWasDeath()) return;
+        RaceData data = event.getOriginal().getData(RACE_DATA);
+        event.getEntity().setData(RACE_DATA, data);
+    }
+
+    public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        RaceData data = event.getEntity().getData(RACE_DATA);
+        event.getEntity().setData(RACE_DATA, data);
+    }
+
+    public record RaceData(String raceName, String texturePath) {
+        public static final Codec<RaceData> CODEC = RecordCodecBuilder.create(instance ->
+            instance.group(
+                Codec.STRING.fieldOf("race_name").forGetter(RaceData::raceName),
+                Codec.STRING.fieldOf("texture_path").forGetter(RaceData::texturePath)
+            ).apply(instance, RaceData::new)
+        );
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\screen\ColorPickerScreen.java
+================================================================================
+package net.dragonultimate.screen;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+import java.util.function.Consumer;
+
+public class ColorPickerScreen extends Screen {
+
+    private final Screen parent;
+    private final Consumer<float[]> onColorPicked;
+
+    private float hue;
+    private float saturation;
+    private float value;
+
+    private boolean draggingSV = false;
+    private boolean draggingHue = false;
+
+    private static final int BOX_SIZE = 120;
+    private static final int HUE_BAR_WIDTH = 16;
+    private static final int PADDING = 10;
+
+    private int svX, svY;
+    private int hueX, hueY;
+
+    public ColorPickerScreen(Screen parent, float[] initialColorRgb, Consumer<float[]> onColorPicked) {
+        super(Component.literal("Escolher Cor"));
+        this.parent = parent;
+        this.onColorPicked = onColorPicked;
+
+        float[] hsv = rgbToHsv(initialColorRgb[0], initialColorRgb[1], initialColorRgb[2]);
+        this.hue = hsv[0];
+        this.saturation = hsv[1];
+        this.value = hsv[2];
+    }
+
+    @Override
+    public boolean isPauseScreen() { return false; }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
+
+    @Override
+    protected void init() {
+        int totalWidth = BOX_SIZE + PADDING + HUE_BAR_WIDTH;
+        int startX = this.width / 2 - totalWidth / 2;
+        int startY = this.height / 2 - BOX_SIZE / 2 - 25;
+
+        svX = startX;
+        svY = startY;
+        hueX = startX + BOX_SIZE + PADDING;
+        hueY = startY;
+
+        int swatchY = svY + BOX_SIZE + 15;
+
+        this.addRenderableWidget(Button.builder(Component.literal("Definir Cor"), button -> {
+            float[] rgb = currentRgbFloat();
+            onColorPicked.accept(rgb);
+            Minecraft.getInstance().setScreen(parent);
+        }).bounds(startX, swatchY + 36, 80, 18).build());
+
+        this.addRenderableWidget(Button.builder(Component.literal("Cancelar"), button ->
+            Minecraft.getInstance().setScreen(parent)
+        ).bounds(startX + 90, swatchY + 36, 80, 18).build());
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        graphics.drawCenteredString(this.font, this.title, this.width / 2, svY - 14, 0xFFFFFF);
+
+        for (int x = 0; x < BOX_SIZE; x++) {
+            float sat = x / (float) BOX_SIZE;
+            int top = hsvToRgbPacked(hue, sat, 1f);
+            graphics.fillGradient(svX + x, svY, svX + x + 1, svY + BOX_SIZE, top, 0xFF000000);
+        }
+        drawBorder(graphics, svX - 1, svY - 1, BOX_SIZE + 2, BOX_SIZE + 2, 0xFFFFFFFF);
+
+        for (int y = 0; y < BOX_SIZE; y++) {
+            float hueAtY = (y / (float) BOX_SIZE) * 360f;
+            int color = hsvToRgbPacked(hueAtY, 1f, 1f);
+            graphics.fill(hueX, hueY + y, hueX + HUE_BAR_WIDTH, hueY + y + 1, color);
+        }
+        drawBorder(graphics, hueX - 1, hueY - 1, HUE_BAR_WIDTH + 2, BOX_SIZE + 2, 0xFFFFFFFF);
+
+        int ix = svX + (int) (saturation * BOX_SIZE);
+        int iy = svY + (int) ((1 - value) * BOX_SIZE);
+        graphics.fill(ix - 4, iy - 4, ix + 4, iy + 4, 0xFF000000);
+        graphics.fill(ix - 2, iy - 2, ix + 2, iy + 2, 0xFFFFFFFF);
+
+        int hy = hueY + (int) ((hue / 360f) * BOX_SIZE);
+        graphics.fill(hueX - 3, hy - 1, hueX + HUE_BAR_WIDTH + 3, hy + 1, 0xFF000000);
+        graphics.fill(hueX - 2, hy, hueX + HUE_BAR_WIDTH + 2, hy + 1, 0xFFFFFFFF);
+
+        int[] rgb = currentRgbInt();
+        int swatchY = svY + BOX_SIZE + 15;
+        int totalWidth = BOX_SIZE + PADDING + HUE_BAR_WIDTH;
+
+        graphics.fill(svX, swatchY, svX + totalWidth, swatchY + 16, hsvToRgbPacked(hue, saturation, value));
+        drawBorder(graphics, svX - 1, swatchY - 1, totalWidth + 2, 18, 0xFFFFFFFF);
+
+        String rgbText = "RGB: " + rgb[0] + ", " + rgb[1] + ", " + rgb[2];
+        String hexText = String.format("#%02X%02X%02X", rgb[0], rgb[1], rgb[2]);
+        graphics.drawCenteredString(this.font, rgbText, this.width / 2, swatchY + 20, 0xFFFFFF);
+        graphics.drawCenteredString(this.font, hexText, this.width / 2, swatchY + 31, 0xFFFFFF);
+
+        super.render(graphics, mouseX, mouseY, partialTicks);
+    }
+
+    private void drawBorder(GuiGraphics graphics, int x, int y, int w, int h, int color) {
+        graphics.fill(x, y, x + w, y + 1, color);
+        graphics.fill(x, y + h - 1, x + w, y + h, color);
+        graphics.fill(x, y, x + 1, y + h, color);
+        graphics.fill(x + w - 1, y, x + w, y + h, color);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (super.mouseClicked(mouseX, mouseY, button)) return true;
+
+        if (isInsideSV(mouseX, mouseY)) {
+            draggingSV = true;
+            updateSV(mouseX, mouseY);
+            return true;
+        }
+        if (isInsideHue(mouseX, mouseY)) {
+            draggingHue = true;
+            updateHue(mouseY);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        if (draggingSV) { updateSV(mouseX, mouseY); return true; }
+        if (draggingHue) { updateHue(mouseY); return true; }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        draggingSV = false;
+        draggingHue = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    private boolean isInsideSV(double mouseX, double mouseY) {
+        return mouseX >= svX && mouseX <= svX + BOX_SIZE && mouseY >= svY && mouseY <= svY + BOX_SIZE;
+    }
+
+    private boolean isInsideHue(double mouseX, double mouseY) {
+        return mouseX >= hueX && mouseX <= hueX + HUE_BAR_WIDTH && mouseY >= hueY && mouseY <= hueY + BOX_SIZE;
+    }
+
+    private void updateSV(double mouseX, double mouseY) {
+        double clampedX = Math.max(svX, Math.min(mouseX, svX + BOX_SIZE));
+        double clampedY = Math.max(svY, Math.min(mouseY, svY + BOX_SIZE));
+        saturation = (float) ((clampedX - svX) / BOX_SIZE);
+        value = 1f - (float) ((clampedY - svY) / BOX_SIZE);
+    }
+
+    private void updateHue(double mouseY) {
+        double clampedY = Math.max(hueY, Math.min(mouseY, hueY + BOX_SIZE));
+        hue = (float) ((clampedY - hueY) / BOX_SIZE) * 360f;
+    }
+
+    private float[] currentRgbFloat() {
+        int[] rgb = currentRgbInt();
+        return new float[]{rgb[0] / 255f, rgb[1] / 255f, rgb[2] / 255f};
+    }
+
+    private int[] currentRgbInt() {
+        int packed = hsvToRgbPacked(hue, saturation, value);
+        return new int[]{(packed >> 16) & 0xFF, (packed >> 8) & 0xFF, packed & 0xFF};
+    }
+
+    public static int hsvToRgbPacked(float h, float s, float v) {
+        float r, g, b;
+        h = h % 360f;
+        if (h < 0) h += 360f;
+
+        float c = v * s;
+        float x = c * (1 - Math.abs((h / 60f) % 2 - 1));
+        float m = v - c;
+
+        if (h < 60) { r = c; g = x; b = 0; }
+        else if (h < 120) { r = x; g = c; b = 0; }
+        else if (h < 180) { r = 0; g = c; b = x; }
+        else if (h < 240) { r = 0; g = x; b = c; }
+        else if (h < 300) { r = x; g = 0; b = c; }
+        else { r = c; g = 0; b = x; }
+
+        int ri = (int) ((r + m) * 255);
+        int gi = (int) ((g + m) * 255);
+        int bi = (int) ((b + m) * 255);
+
+        return 0xFF000000 | (ri << 16) | (gi << 8) | bi;
+    }
+
+    public static float[] rgbToHsv(float r, float g, float b) {
+        float max = Math.max(r, Math.max(g, b));
+        float min = Math.min(r, Math.min(g, b));
+        float delta = max - min;
+
+        float h;
+        if (delta == 0) h = 0;
+        else if (max == r) h = 60 * (((g - b) / delta) % 6);
+        else if (max == g) h = 60 * (((b - r) / delta) + 2);
+        else h = 60 * (((r - g) / delta) + 4);
+        if (h < 0) h += 360;
+
+        float s = (max == 0) ? 0 : delta / max;
+        float v = max;
+
+        return new float[]{h, s, v};
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\screen\CustomizacaoScreen.java
+================================================================================
+package net.dragonultimate.screen;
+
+import net.dragonultimate.DragonBlockUltimate;
+import net.dragonultimate.save.SaveAuraColor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+
+public class CustomizacaoScreen extends Screen {
+
+    private static final ResourceLocation BG = ResourceLocation.fromNamespaceAndPath(
+        DragonBlockUltimate.MOD_ID, "textures/gui/gui.png");
+
+    private static final int GuiW = 255;
+    private static final int GuiH = 159;
+    private static final int TextuW = 256;
+    private static final int TextuH = 256;
+
+    private final Player player;
+    private final Inventory playerInventory;
+    private final Screen parent;
+
+    public CustomizacaoScreen(Player player, Inventory playerInventory, Screen parent) {
+        super(Component.literal("Customização"));
+        this.player = player;
+        this.playerInventory = playerInventory;
+        this.parent = parent;
+    }
+
+    @Override
+    public boolean isPauseScreen() { return false; }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
+
+    @Override
+    protected void init() {
+        int guiX = this.width / 2 - GuiW / 2;
+        int guiY = this.height / 2 - GuiH / 2;
+
+        this.addRenderableWidget(Button.builder(Component.literal("Aura Interna"), button -> abrirPicker(true))
+            .bounds(guiX + 130, guiY + 20, 100, 18).build());
+
+        this.addRenderableWidget(Button.builder(Component.literal("Aura Externa"), button -> abrirPicker(false))
+            .bounds(guiX + 130, guiY + 44, 100, 18).build());
+
+        this.addRenderableWidget(Button.builder(Component.literal("Voltar"), button ->
+            Minecraft.getInstance().setScreen(parent)
+        ).bounds(guiX + 130, guiY + 130, 100, 18).build());
+    }
+
+    private void abrirPicker(boolean interna) {
+        SaveAuraColor.AuraColorData data = SaveAuraColor.getAuraColor(player);
+        float[] corAtual = interna ? data.innerArray() : data.outerArray();
+
+        Minecraft.getInstance().setScreen(new ColorPickerScreen(this, corAtual, novaCor -> {
+            if (interna) {
+                SaveAuraColor.setAuraColor(player,
+                    novaCor[0], novaCor[1], novaCor[2],
+                    data.outerR(), data.outerG(), data.outerB());
+            } else {
+                SaveAuraColor.setAuraColor(player,
+                    data.innerR(), data.innerG(), data.innerB(),
+                    novaCor[0], novaCor[1], novaCor[2]);
+            }
+        }));
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        graphics.blit(BG, this.width / 2 - GuiW / 2, this.height / 2 - GuiH / 2, 0, 0, GuiW, GuiH, TextuW, TextuH);
+
+        int playerX = this.width / 2 - GuiW / 2 + 35;
+        int playerY = this.height / 2 + 60;
+
+        InventoryScreen.renderEntityInInventoryFollowsMouse(
+            graphics,
+            playerX - 30, playerY - 110,
+            playerX + 30, playerY,
+            50, 0.0625F,
+            mouseX, mouseY,
+            this.player
+        );
+
+        super.render(graphics, mouseX, mouseY, partialTicks);
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\screen\MenuInicial.java
+================================================================================
+package net.dragonultimate.screen;
+
+import net.dragonultimate.DragonBlockUltimate;
+import net.dragonultimate.save.SaveRaceSkin;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.client.gui.GuiGraphics;
+
+public class MenuInicial extends Screen {
+
+    public enum Raca {
+        HUMANO("Humano", "textures/entity/player/slim/alex.png"),
+        SAYAJIN("Sayajin", "textures/cc/body2sayan.png");
+
+        private final String nome;
+        private final String textura;
+
+        Raca(String nome, String textura) {
+            this.nome = nome;
+            this.textura = textura;
+        }
+
+        public String getNome() { return nome; }
+        public String getTextura() { return textura; }
+
+        public Raca anterior() {
+            Raca[] v = values();
+            int i = this.ordinal() - 1;
+            return v[i < 0 ? v.length - 1 : i];
+        }
+
+        public Raca proxima() {
+            Raca[] v = values();
+            int i = this.ordinal() + 1;
+            return v[i >= v.length ? 0 : i];
+        }
+    }
+
+    private static final ResourceLocation BG = ResourceLocation.fromNamespaceAndPath(
+        DragonBlockUltimate.MOD_ID, "textures/gui/gui.png");
+
+    private static final ResourceLocation ICONS = ResourceLocation.fromNamespaceAndPath(
+        DragonBlockUltimate.MOD_ID, "textures/gui/icons.png");
+
+    private static final int GuiW = 255;
+    private static final int GuiH = 159;
+    private static final int TextuW = 256;
+    private static final int TextuH = 256;
+
+    private final Player player;
+    private final Inventory playerInventory;
+    private Raca racaAtual = Raca.HUMANO;
+
+    public MenuInicial(Player player, Inventory playerInventory, Component title) {
+        super(title);
+        this.player = player;
+        this.playerInventory = playerInventory;
+    }
+
+    @Override
+    public boolean isPauseScreen() { return false; }
+
+    @Override
+    public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
+
+    @Override
+    protected void init() {
+        int guiX = this.width / 2 - GuiW / 2;
+        int guiY = this.height / 2 - GuiH / 2;
+
+        this.addRenderableWidget(new SpriteButton(
+            guiX + 80, guiY + 120, 10, 10,
+            0, 0, 0, 10, ICONS,
+            button -> { racaAtual = racaAtual.anterior(); salvarRaca(); }
+        ));
+
+        this.addRenderableWidget(new SpriteButton(
+            guiX + 165, guiY + 120, 10, 10,
+            10, 0, 10, 10, ICONS,
+            button -> { racaAtual = racaAtual.proxima(); salvarRaca(); }
+        ));
+
+        this.addRenderableWidget(Button.builder(Component.literal("Customizar"), button ->
+            Minecraft.getInstance().setScreen(new CustomizacaoScreen(this.player, this.playerInventory, this))
+        ).bounds(guiX + 190, guiY + 15, 55, 18).build());
+    }
+
+    private void salvarRaca() {
+        SaveRaceSkin.setRaceData(this.player, racaAtual.getNome(), racaAtual.getTextura());
+
+        // DEBUG - remover depois
+        SaveRaceSkin.RaceData check = SaveRaceSkin.getRaceData(this.player);
+        this.player.displayClientMessage(Component.literal(
+            "[DEBUG salvarRaca] escreveu=" + racaAtual.getNome()
+            + " | releu=" + check.raceName() + " / " + check.texturePath()
+        ), false);
+    }
+
+    @Override
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+        graphics.blit(BG, this.width / 2 - GuiW / 2, this.height / 2 - GuiH / 2, 0, 0, GuiW, GuiH, TextuW, TextuH);
+
+        int playerX = this.width / 2 - GuiW / 2 + 35;
+        int playerY = this.height / 2 + 60;
+
+        InventoryScreen.renderEntityInInventoryFollowsMouse(
+            graphics,
+            playerX - 30, playerY - 110,
+            playerX + 30, playerY,
+            50, 0.0625F,
+            mouseX, mouseY,
+            this.player
+        );
+
+        int guiX = this.width / 2 - GuiW / 2;
+        int guiY = this.height / 2 - GuiH / 2;
+        graphics.drawCenteredString(this.font, racaAtual.getNome(),
+            guiX + 127, guiY + 122, 0xFFFFFF);
+
+        super.render(graphics, mouseX, mouseY, partialTicks);
+    }
+
+    private static class SpriteButton extends Button {
+        private final int uNormal, vNormal, uPressed, vPressed;
+        private final ResourceLocation texture;
+        private boolean pressed = false;
+
+        public SpriteButton(int x, int y, int width, int height,
+                            int uNormal, int vNormal, int uPressed, int vPressed,
+                            ResourceLocation texture, OnPress onPress) {
+            super(x, y, width, height, Component.empty(), onPress, DEFAULT_NARRATION);
+            this.uNormal = uNormal;
+            this.vNormal = vNormal;
+            this.uPressed = uPressed;
+            this.vPressed = vPressed;
+            this.texture = texture;
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (super.mouseClicked(mouseX, mouseY, button)) {
+                pressed = true;
+                return true;
+            }
+            return false;
+        }
+
+        @Override
+        public boolean mouseReleased(double mouseX, double mouseY, int button) {
+            pressed = false;
+            return super.mouseReleased(mouseX, mouseY, button);
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            int u = pressed ? uPressed : uNormal;
+            int v = pressed ? vPressed : vNormal;
+            graphics.blit(texture, this.getX(), this.getY(), u, v, this.width, this.height, 256, 256);
+        }
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\shader\AuraState.java
+================================================================================
+package net.dragonultimate.shader;
+
+public class AuraState {
+
+    private static boolean active = false;
+
+    // 0..1: quanto a aura já "carregou" desde que foi ativada.
+    // Sobe suave ao ligar, desce suave ao desligar — dá o efeito de
+    // power-up/power-down mesmo sem ter estados de transformação ainda.
+    private static float chargeLevel = 0.0f;
+
+    private static final float CHARGE_SPEED_PER_TICK = 0.05f;   // ~4 ticks pra chegar a 1.0 (0.2s)
+    private static final float DISCHARGE_SPEED_PER_TICK = 0.08f; // desliga um pouco mais rápido que carrega
+
+    private AuraState() {}
+
+    public static boolean isActive() {
+        return active;
+    }
+
+    public static void toggle() {
+        active = !active;
+    }
+
+    public static void set(boolean value) {
+        active = value;
+    }
+
+    /**
+     * Retorna o nível atual de carga (0..1). É esse valor que alimenta o
+     * uniform "intensity" do shader e o vFlicker/coreMask no fragment.
+     */
+    public static float getIntensity() {
+        return chargeLevel;
+    }
+
+    /**
+     * Chamado uma vez por client tick (ver KeybindHandler.onClientTick ou
+     * um listener de tick dedicado). Avança a rampa de carga na direção
+     * certa dependendo se a aura está ativa ou não.
+     */
+    public static void tick() {
+        if (active) {
+            if (chargeLevel < 1.0f) {
+                chargeLevel = Math.min(1.0f, chargeLevel + CHARGE_SPEED_PER_TICK);
+            }
+        } else {
+            if (chargeLevel > 0.0f) {
+                chargeLevel = Math.max(0.0f, chargeLevel - DISCHARGE_SPEED_PER_TICK);
+            }
+        }
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\shader\BloomPipeline.java
+================================================================================
+package net.dragonultimate.shader;
+
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.pipeline.TextureTarget;
+import net.dragonultimate.DragonBlockUltimate;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.EffectInstance;
+import net.minecraft.client.renderer.PostPass;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import org.joml.Matrix4f;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Three-level HDR-style bloom pyramid.
+ *
+ * <p>The scene is copied before any post-processing, then bright pixels are
+ * extracted and blurred at 1/2, 1/4 and 1/8 resolution. The three blurred
+ * levels are combined with the original scene in a final fullscreen pass.</p>
+ */
+public final class BloomPipeline {
+    private static final String NAMESPACE = DragonBlockUltimate.MOD_ID + ":";
+    private static final String COPY = NAMESPACE + "light_copy";
+    private static final String EXTRACT = NAMESPACE + "bloom";
+    private static final String BLUR = NAMESPACE + "light_gaussian";
+    private static final String COMPOSITE = NAMESPACE + "light_composite";
+
+    private static Pipeline pipeline;
+    private static boolean failed;
+
+    private BloomPipeline() {}
+
+    public static void onRenderLevelStage(RenderLevelStageEvent event) {
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL || failed) return;
+
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || minecraft.isPaused()) return;
+
+        try {
+            int width = minecraft.getMainRenderTarget().width;
+            int height = minecraft.getMainRenderTarget().height;
+            if (width <= 0 || height <= 0) return;
+
+            if (pipeline == null || pipeline.width != width || pipeline.height != height) {
+                close();
+                pipeline = new Pipeline(minecraft, width, height);
+            }
+            pipeline.process(event.getPartialTick().getGameTimeDeltaPartialTick(false));
+        } catch (Exception exception) {
+            failed = true;
+            DragonBlockUltimate.LOGGER.error(
+                "[DragonBlockUltimate] Falha ao executar a piramide de bloom OpenGL.", exception
+            );
+            close();
+        }
+    }
+
+    public static void resize(int width, int height) {
+        if (pipeline != null && (pipeline.width != width || pipeline.height != height)) {
+            close();
+        }
+    }
+
+    public static void close() {
+        if (pipeline != null) {
+            pipeline.close();
+            pipeline = null;
+        }
+    }
+
+    private static final class Pipeline implements AutoCloseable {
+        private final Minecraft minecraft;
+        private final int width;
+        private final int height;
+        private final RenderTarget scene;
+        private final Level level0;
+        private final Level level1;
+        private final Level level2;
+        private final List<PostPass> passes = new ArrayList<>();
+
+        private Pipeline(Minecraft minecraft, int width, int height) throws IOException {
+            this.minecraft = minecraft;
+            this.width = width;
+            this.height = height;
+            this.scene = target(width, height);
+            this.level0 = new Level(width / 2, height / 2);
+            this.level1 = new Level(width / 4, height / 4);
+            this.level2 = new Level(width / 8, height / 8);
+
+            add(COPY, minecraft.getMainRenderTarget(), scene, width, height);
+            add(EXTRACT, scene, level0.color, level0.width, level0.height);
+            blur(level0);
+            add(EXTRACT, level0.color, level1.color, level1.width, level1.height);
+            blur(level1);
+            add(EXTRACT, level1.color, level2.color, level2.width, level2.height);
+            blur(level2);
+
+            PostPass composite = add(COMPOSITE, scene, minecraft.getMainRenderTarget(), width, height);
+            composite.addAuxAsset("Bloom0", level0.color::getColorTextureId, level0.width, level0.height);
+            composite.addAuxAsset("Bloom1", level1.color::getColorTextureId, level1.width, level1.height);
+            composite.addAuxAsset("Bloom2", level2.color::getColorTextureId, level2.width, level2.height);
+        }
+
+        private void blur(Level level) throws IOException {
+            PostPass horizontal = add(BLUR, level.color, level.swap, level.width, level.height);
+            set(horizontal, "BlurDir", 1.0f, 0.0f);
+            set(horizontal, "Radius", level.radius);
+
+            PostPass vertical = add(BLUR, level.swap, level.color, level.width, level.height);
+            set(vertical, "BlurDir", 0.0f, 1.0f);
+            set(vertical, "Radius", level.radius);
+        }
+
+        private PostPass add(String shader, RenderTarget input, RenderTarget output,
+                             int outputWidth, int outputHeight) throws IOException {
+            PostPass pass = new PostPass(
+                minecraft.getResourceManager(),
+                shader,
+                input,
+                output,
+                true
+            );
+            pass.setOrthoMatrix(new Matrix4f().ortho(0.0f, outputWidth, outputHeight, 0.0f, 0.1f, 1000.0f));
+            passes.add(pass);
+            return pass;
+        }
+
+        private void process(float partialTick) {
+            for (PostPass pass : passes) {
+                pass.process(partialTick);
+            }
+        }
+
+        private static void set(PostPass pass, String name, float... values) {
+            EffectInstance effect = pass.getEffect();
+            if (effect.getUniform(name) != null) {
+                effect.getUniform(name).set(values);
+            }
+        }
+
+        private static RenderTarget target(int width, int height) {
+            TextureTarget target = new TextureTarget(width, height, true, Minecraft.ON_OSX);
+            target.setClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            return target;
+        }
+
+        @Override
+        public void close() {
+            for (PostPass pass : passes) {
+                pass.close();
+            }
+            scene.destroyBuffers();
+            level0.close();
+            level1.close();
+            level2.close();
+        }
+    }
+
+    private static final class Level implements AutoCloseable {
+        private final int width;
+        private final int height;
+        private final float radius;
+        private final RenderTarget color;
+        private final RenderTarget swap;
+
+        private Level(int width, int height) {
+            this.width = Math.max(1, width);
+            this.height = Math.max(1, height);
+            this.radius = width <= 2 ? 3.0f : width <= 4 ? 4.0f : 5.0f;
+            this.color = Pipeline.target(this.width, this.height);
+            this.swap = Pipeline.target(this.width, this.height);
+        }
+
+        @Override
+        public void close() {
+            color.destroyBuffers();
+            swap.destroyBuffers();
+        }
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\shader\LightRenderTypes.java
+================================================================================
+package net.dragonultimate.shader;
+
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.renderer.RenderStateShard;
+import net.minecraft.client.renderer.RenderType;
+
+public final class LightRenderTypes extends RenderType {
+    private LightRenderTypes(String name, VertexFormat format, VertexFormat.Mode mode, int bufferSize,
+                             boolean affectsCrumbling, boolean sortOnUpload, Runnable setup, Runnable clear) {
+        super(name, format, mode, bufferSize, affectsCrumbling, sortOnUpload, setup, clear);
+        throw new IllegalStateException("Classe não deve ser instanciada");
+    }
+
+    private static final RenderStateShard.ShaderStateShard LIGHT_SHADER =
+        new RenderStateShard.ShaderStateShard(LightShaderManager::getShader);
+
+    private static final RenderType LIGHTNING = create(
+        "dbu_lightning",
+        DefaultVertexFormat.POSITION_COLOR,
+        VertexFormat.Mode.QUADS,
+        256,
+        false,
+        false,
+        CompositeState.builder()
+            .setShaderState(LIGHT_SHADER)
+            .setTransparencyState(RenderStateShard.LIGHTNING_TRANSPARENCY)
+            .setCullState(RenderStateShard.NO_CULL)
+            .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+            .setWriteMaskState(RenderStateShard.COLOR_WRITE)
+            .setLightmapState(RenderStateShard.NO_LIGHTMAP)
+            .setOverlayState(RenderStateShard.NO_OVERLAY)
+            .createCompositeState(false)
+    );
+
+    private LightRenderTypes() {
+        super(null, null, null, 0, false, false, null, null);
+    }
+
+    public static RenderType lightning() {
+        return LIGHTNING;
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\shader\LightShaderManager.java
+================================================================================
+package net.dragonultimate.shader;
+
+import net.dragonultimate.DragonBlockUltimate;
+import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.neoforge.client.event.RegisterShadersEvent;
+
+import javax.annotation.Nullable;
+import java.io.IOException;
+
+public final class LightShaderManager {
+    @Nullable
+    private static ShaderInstance shader;
+
+    private LightShaderManager() {}
+
+    public static void register(RegisterShadersEvent event) throws IOException {
+        event.registerShader(
+            new ShaderInstance(
+                event.getResourceProvider(),
+                ResourceLocation.fromNamespaceAndPath(DragonBlockUltimate.MOD_ID, "light"),
+                com.mojang.blaze3d.vertex.DefaultVertexFormat.POSITION_COLOR
+            ),
+            registered -> shader = registered
+        );
+    }
+
+    @Nullable
+    public static ShaderInstance getShader() {
+        return shader;
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\worldgen\NamekGen.java
+================================================================================
+package net.dragonultimate.worldgen;
+
+import net.minecraft.world.level.levelgen.GenerationStep;
+import net.neoforged.neoforge.common.world.BiomeModifiers;
+import net.minecraft.world.level.biome.Biome;
+// World generation setup for Namek dimension/biomes.
+// Removed invalid/unused imports to fix compilation errors.
+public class NamekGen {
+
+	public static void setupWorldGen() {
+	}
+	// TODO: add worldgen features and registrations here when Minecraft mappings are available.
+
+}
+
+
+================================================================================
+ARQUIVO: src\main\java\net\dragonultimate\worldgen\tree\ModTreeGrowers.java
+================================================================================
+package net.dragonultimate.worldgen.tree;
+
+import net.dragonultimate.ModConfiguredFeatures;
+import net.minecraft.world.level.block.grower.TreeGrower;
+
+import java.util.Optional;
+
+public class ModTreeGrowers {
+    public static final TreeGrower NAMEKWOOD = new TreeGrower(
+            "namekwood",
+            Optional.of(ModConfiguredFeatures.NAMEK_TREE.getKey()),
+            Optional.empty(),
+            Optional.empty()
+    );
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\blockstates\light_dirty.json
+================================================================================
+{
+  "variants": {
+    "": {
+      "model": "dragonblockultimate:block/light_dirty"
+    }
+  }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\blockstates\namek_grass.json
+================================================================================
+{
+  "variants": {
+    "": {
+      "model": "dragonblockultimate:block/namek_grass"
+    }
+  }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\blockstates\namek_leave.json
+================================================================================
+{
+  "variants": {
+    "": {
+      "model": "dragonblockultimate:block/namek_leave"
+    }
+  }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\blockstates\namek_log.json
+================================================================================
+{
+  "variants": {
+    "": {
+      "model": "dragonblockultimate:block/namek_log"
+    }
+  }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\blockstates\namek_sapling.json
+================================================================================
+{
+  "variants": {
+    "": {
+      "model": "dragonblockultimate:block/namek_sapling"
+    }
+  }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\lang\en_us.json
+================================================================================
+{
+  "itemGroup.dragonblockultimate": "Dragon Block Ultimate",
+  "block.dragonblockultimate.namek_grass": "Namek Grass",
+  "block.dragonblockultimate.namek_leave": "Namek Leaves",
+  "block.dragonblockultimate.namek_log": "Namek Log",
+  "block.dragonblockultimate.namek_sapling": "Namek Sapling",
+  "block.dragonblockultimate.light_dirty": "Light Dirty",
+  "item.dragonblockultimate.dino_meat": "Dino Meat",
+  "item.dragonblockultimate.dino_meat_cooked": "Cooked Dino Meat",
+  "item.dragonblockultimate.senzu": "Senzu Bean"
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\block\light_dirty.json
+================================================================================
+{
+    "parent": "block/cube_all",
+    "textures": {
+        "all": "dragonblockultimate:block/light_dirty"
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\block\namek_grass.json
+================================================================================
+{
+    "parent": "block/cube_bottom_top",
+    "textures": {
+        "top": "dragonblockultimate:block/namek_grass_top",
+        "side": "dragonblockultimate:block/namek_grass_side",
+        "bottom": "dragonblockultimate:block/light_dirty"
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\block\namek_leave.json
+================================================================================
+{
+    "parent": "block/leaves",
+    "textures": {
+        "all": "dragonblockultimate:block/namek_leave"
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\block\namek_log.json
+================================================================================
+{
+    "parent": "block/cube_column",
+    "textures": {
+        "end": "dragonblockultimate:block/namek_log_top",
+        "side": "dragonblockultimate:block/namek_log_side"
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\block\namek_sapling.json
+================================================================================
+{
+    "parent": "block/cross",
+    "render_type": "minecraft:cutout",
+    "textures": {
+        "cross": "dragonblockultimate:block/namek_sapling"
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\entity\arconsian.geo.json
+================================================================================
+{
+	"format_version": "1.12.0",
+	"minecraft:geometry": [
+		{
+			"description": {
+				"identifier": "geometry.unknown",
+				"texture_width": 64,
+				"texture_height": 64,
+				"visible_bounds_width": 4,
+				"visible_bounds_height": 4,
+				"visible_bounds_offset": [0, 1, 0]
+			},
+			"bones": [
+				{
+					"name": "bb_main",
+					"pivot": [0, 0, 0],
+					"cubes": [
+						{"origin": [-1, 12, 2], "size": [2, 2, 16], "uv": [0, 0]}
+					]
+				},
+				{
+					"name": "Waist",
+					"pivot": [0, 12, 0]
+				},
+				{
+					"name": "Head",
+					"parent": "Waist",
+					"pivot": [0, 24, 0],
+					"cubes": [
+						{"origin": [-4, 24, -4], "size": [8, 8, 8], "uv": [0, 18]},
+						{"origin": [-4, 24, -4], "size": [8, 8, 8], "inflate": 0.5, "uv": [32, 0]}
+					]
+				},
+				{
+					"name": "Body",
+					"parent": "Waist",
+					"pivot": [0, 24, 0],
+					"cubes": [
+						{"origin": [-4, 12, -2], "size": [8, 12, 4], "uv": [32, 18]},
+						{"origin": [-4, 12, -2], "size": [8, 12, 4], "inflate": 0.25, "uv": [16, 32]}
+					]
+				},
+				{
+					"name": "Right Arm",
+					"parent": "Waist",
+					"pivot": [-5, 22, 0],
+					"cubes": [
+						{"origin": [-8, 12, -2], "size": [4, 12, 4], "uv": [0, 34]},
+						{"origin": [-8, 12, -2], "size": [4, 12, 4], "inflate": 0.25, "uv": [40, 32]}
+					]
+				},
+				{
+					"name": "Left Arm",
+					"parent": "Waist",
+					"pivot": [5, 22, 0],
+					"cubes": [
+						{"origin": [4, 12, -2], "size": [4, 12, 4], "uv": [16, 34]},
+						{"origin": [4, 12, -2], "size": [4, 12, 4], "inflate": 0.25, "uv": [48, 48]}
+					]
+				},
+				{
+					"name": "Right Leg",
+					"pivot": [-1.9, 12, 0],
+					"cubes": [
+						{"origin": [-3.9, 0, -2], "size": [4, 12, 4], "uv": [32, 34]},
+						{"origin": [-3.9, 0, -2], "size": [4, 12, 4], "inflate": 0.25, "uv": [0, 32]}
+					]
+				},
+				{
+					"name": "Left Leg",
+					"pivot": [1.9, 12, 0],
+					"cubes": [
+						{"origin": [-0.1, 0, -2], "size": [4, 12, 4], "uv": [36, 0]},
+						{"origin": [-0.1, 0, -2], "size": [4, 12, 4], "inflate": 0.25, "uv": [0, 48]}
+					]
+				}
+			]
+		}
+	]
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\fly\fly.animation.json
+================================================================================
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"animation.fly_backward": {
+			"loop": "hold_on_last_frame",
+			"animation_length": 0.25,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								-5,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								0,
+								-1,
+								1
+							]
+						}
+					}
+				},
+				"Body": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								-10,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								0,
+								-1,
+								2
+							]
+						}
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.2083": {
+							"vector": [
+								-20,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.2083": {
+							"vector": [
+								0,
+								-1,
+								1
+							]
+						}
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.2083": {
+							"vector": [
+								-20,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.2083": {
+							"vector": [
+								0,
+								-1,
+								1
+							]
+						}
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								-17.5,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								-17.5,
+								0,
+								0
+							]
+						}
+					}
+				}
+			}
+		},
+		"animation.fly_walk": {
+			"animation_length": 0.25,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								5,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					}
+				},
+				"Body": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								10,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						}
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								20,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								20,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						}
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								20,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								0,
+								0.5,
+								2
+							]
+						}
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								20,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								0,
+								0.5,
+								2
+							]
+						}
+					}
+				}
+			}
+		},
+		"animation.fly_up": {
+			"animation_length": 0.25,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								-42.5,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								0,
+								0,
+								-1
+							]
+						}
+					}
+				},
+				"Body": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								5,
+								0,
+								0
+							]
+						}
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								10,
+								0,
+								0
+							]
+						}
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								10,
+								0,
+								0
+							]
+						}
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								10,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								0,
+								0.3,
+								1
+							]
+						}
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								10,
+								0,
+								0
+							]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								0,
+								0.3,
+								1
+							]
+						}
+					}
+				}
+			}
+		},
+		"animation.fly_idle": {
+			"loop": true,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					},
+					"position": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					}
+				},
+				"Body": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					},
+					"position": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					},
+					"position": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					},
+					"position": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					},
+					"position": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					},
+					"position": {
+						"vector": [
+							0,
+							0,
+							0
+						]
+					}
+				}
+			}
+		},
+		"animation.fly_strafe_left": {
+			"animation_length": 0.25,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								-3.5378,
+								-32.2007,
+								11.433
+							]
+						}
+					}
+				},
+				"Body": {
+					"rotation": {
+						"vector": [
+							7.5,
+							0,
+							10
+						]
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"vector": [
+							12.5,
+							-2,
+							12.5
+						]
+					},
+					"position": {
+						"0.0": {
+							"vector": [
+								0,
+								0,
+								0
+							]
+						},
+						"0.25": {
+							"vector": [
+								-0.1,
+								1,
+								0
+							],
+							"easing": "easeOutQuad"
+						}
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"vector": [
+							12.5,
+							-2,
+							12
+						]
+					},
+					"position": {
+						"vector": [
+							-0.5,
+							-1,
+							0
+						]
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"vector": [
+							17.5,
+							0,
+							12.5
+						]
+					},
+					"position": {
+						"vector": [
+							-2,
+							1,
+							1.4
+						]
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"vector": [
+							17.5,
+							0,
+							12.5
+						]
+					},
+					"position": {
+						"vector": [
+							-2,
+							0.2,
+							1.5
+						]
+					}
+				}
+			}
+		},
+		"animation.fly_strafe_right": {
+			"loop": true
+		}
+	}
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\fly\fly.animation.tail.json
+================================================================================
+{
+	"format_version": "1.12.0",
+	"animations": {
+		"animation.fly_backward": {
+			"loop": "hold_on_last_frame",
+			"animation_length": 0.25,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-5, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, -1, 1]
+						}
+					}
+				},
+				"Body": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-10, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, -1, 2]
+						}
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.2083": {
+							"vector": [-20, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.2083": {
+							"vector": [0, -1, 1]
+						}
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.2083": {
+							"vector": [-20, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.2083": {
+							"vector": [0, -1, 1]
+						}
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-17.5, 0, 0]
+						}
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-17.5, 0, 0]
+						}
+					}
+				},
+				"tail": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"tail2": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-30, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, -1.4, -1.2],
+							"easing": "easeOutSine"
+						}
+					}
+				},
+				"tail3": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-67.5, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, -3, -3]
+						}
+					}
+				},
+				"tail4": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-110, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, -5.5, -6]
+						}
+					}
+				},
+				"tail1": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-20, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 0, -0.5]
+						}
+					}
+				}
+			}
+		},
+		"animation.fly_walk": {
+			"animation_length": 0.25,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [5, 0, 0]
+						}
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"Body": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [10, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 0, 0]
+						}
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [20, 0, 0]
+						}
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [20, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 0, 0]
+						}
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [20, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 0.5, 2]
+						}
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [20, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 0.5, 2]
+						}
+					}
+				},
+				"tail": {
+					"position": {
+						"vector": [0, 0.5, 2]
+					}
+				},
+				"tail2": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [17.5, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, -2]
+						},
+						"0.25": {
+							"vector": [0, 0.8, 0]
+						}
+					}
+				},
+				"tail3": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [35, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, -2]
+						},
+						"0.25": {
+							"vector": [0, 2.2, -0.5]
+						}
+					}
+				},
+				"tail4": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [70, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, -2]
+						},
+						"0.25": {
+							"vector": [0, 4.98, -1.6]
+						}
+					}
+				},
+				"tail1": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [10, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, -2]
+						},
+						"0.25": {
+							"vector": [0, 0, 0]
+						}
+					}
+				}
+			}
+		},
+		"animation.fly_up": {
+			"animation_length": 0.25,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-42.5, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 0, -1]
+						}
+					}
+				},
+				"Body": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [5, 0, 0]
+						}
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [10, 0, 0]
+						}
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [10, 0, 0]
+						}
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [10, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 0.3, 1]
+						}
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [10, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 0.3, 1]
+						}
+					}
+				},
+				"tail2": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-10, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, -0.5, 0]
+						}
+					}
+				},
+				"tail3": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-10, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, -1.2, -0.1]
+						}
+					}
+				},
+				"tail4": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-20, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, -2, -0.5]
+						}
+					}
+				},
+				"tail1": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-7.5, 0, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 0, 0.5]
+						}
+					}
+				}
+			}
+		},
+		"animation.fly_idle": {
+			"loop": true,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"Body": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"tail": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"tail2": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"tail3": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"tail4": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				},
+				"tail1": {
+					"rotation": {
+						"vector": [0, 0, 0]
+					},
+					"position": {
+						"vector": [0, 0, 0]
+					}
+				}
+			}
+		},
+		"animation.fly_strafe_left": {
+			"animation_length": 0.25,
+			"bones": {
+				"Head": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-3.5378, -32.2007, 11.433]
+						}
+					}
+				},
+				"Body": {
+					"rotation": {
+						"vector": [7.5, 0, 10]
+					}
+				},
+				"Right Arm": {
+					"rotation": {
+						"vector": [12.5, -2, 12.5]
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-0.1, 1, 0],
+							"easing": "easeOutQuad"
+						}
+					}
+				},
+				"Left Arm": {
+					"rotation": {
+						"vector": [12.5, -2, 12]
+					},
+					"position": {
+						"vector": [-0.5, -1, 0]
+					}
+				},
+				"Right Leg": {
+					"rotation": {
+						"vector": [17.5, 0, 12.5]
+					},
+					"position": {
+						"vector": [-2, 1, 1.4]
+					}
+				},
+				"Left Leg": {
+					"rotation": {
+						"vector": [17.5, 0, 12.5]
+					},
+					"position": {
+						"vector": [-2, 0.2, 1.5]
+					}
+				},
+				"tail": {
+					"rotation": {
+						"vector": [0, 0, 15]
+					},
+					"position": {
+						"vector": [-2, 0.5, 1]
+					}
+				},
+				"tail2": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-1.0818, -2.4536, 4.9283]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-0.8, 0, 0]
+						}
+					}
+				},
+				"tail3": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [1.3985, 22.4395, 5.3645]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [-0.7, 0, -0.2]
+						}
+					}
+				},
+				"tail4": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, 35, 0]
+						}
+					},
+					"position": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [1, 0, -0.7]
+						}
+					}
+				},
+				"tail1": {
+					"rotation": {
+						"0.0": {
+							"vector": [0, 0, 0]
+						},
+						"0.25": {
+							"vector": [0, -10, 0]
+						}
+					}
+				}
+			}
+		},
+		"animation.fly_strafe_right": {
+			"loop": true
+		}
+	}
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\item\dino_meat.json
+================================================================================
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "dragonblockultimate:item/dino_meat"
+  }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\item\dino_meat_cooked.json
+================================================================================
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "dragonblockultimate:item/dino_meat_cooked"
+  }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\item\light_dirty.json
+================================================================================
+{
+  "parent": "dragonblockultimate:block/light_dirty"
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\item\namek_grass.json
+================================================================================
+{
+  "parent": "dragonblockultimate:block/namek_grass"
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\item\namek_leave.json
+================================================================================
+{
+  "parent": "dragonblockultimate:block/namek_leave"
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\item\namek_log.json
+================================================================================
+{
+  "parent": "dragonblockultimate:block/namek_log"
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\item\namek_sapling.json
+================================================================================
+{
+    "parent": "minecraft:item/generated",
+    "textures": {
+        "layer0": "dragonblockultimate:block/namek_sapling"
+    }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\models\item\senzu.json
+================================================================================
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "dragonblockultimate:item/senzu"
+  }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\core\kiblast.fsh
+================================================================================
+#version 150
+
+in vec4 vColor;
+in float vPulse;
+in float vHeight;
+
+uniform vec3 color1;
+uniform vec3 color2;
+uniform float intensity;
+uniform float radius;
+
+out vec4 fragColor;
+
+void main() {
+    float glow = smoothstep(0.0, 1.0, vHeight * radius) * intensity;
+    vec3 base = mix(color1, color2, glow);
+    vec3 pulse = base * (0.8 + 0.2 * vPulse);
+    float alpha = clamp(0.35 + 0.65 * glow, 0.0, 1.0) * vPulse;
+    fragColor = vec4(pulse, alpha);
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\core\kiblast.json
+================================================================================
+{
+  "vertex": "dragonblockultimate:kiblast",
+  "fragment": "dragonblockultimate:kiblast",
+  "attributes": ["Position", "Color"],
+  "uniforms": [
+    {
+      "name": "ModelViewMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    },
+    {
+      "name": "ProjMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+    },
+    {
+      "name": "time",
+      "type": "float",
+      "count": 1,
+      "values": [0.0]
+    },
+    {
+      "name": "intensity",
+      "type": "float",
+      "count": 1,
+      "values": [1.0]
+    },
+    {
+      "name": "radius",
+      "type": "float",
+      "count": 1,
+      "values": [1.0]
+    },
+    {
+      "name": "color1",
+      "type": "float",
+      "count": 3,
+      "values": [1.0, 0.8, 0.2]
+    },
+    {
+      "name": "color2",
+      "type": "float",
+      "count": 3,
+      "values": [1.0, 0.2, 0.2]
+    }
+  ],
+  "samplers": [],
+  "blend": {
+    "func": "add",
+    "srcrgb": "srcalpha",
+    "dstrgb": "1-srcalpha"
+  },
+  "cull": false
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\core\kiblast.vsh
+================================================================================
+#version 150
+
+in vec3 Position;
+in vec4 Color;
+
+out vec4 vColor;
+out float vPulse;
+out float vHeight;
+
+uniform mat4 ModelViewMat;
+uniform mat4 ProjMat;
+uniform float time;
+uniform float intensity;
+
+void main() {
+    vec4 pos = vec4(Position, 1.0);
+    vec4 viewPos = ModelViewMat * pos;
+
+    vColor = Color;
+    vHeight = clamp((Position.y + 1.0) * 0.5, 0.0, 1.0);
+    vPulse = 0.5 + 0.5 * sin(time * 6.0 + Position.y * 2.0) * intensity;
+
+    gl_Position = ProjMat * viewPos;
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\core\light.fsh
+================================================================================
+#version 150
+
+in vec4 vColor;
+
+out vec4 fragColor;
+
+void main() {
+    vec3 lightColor = vColor.rgb * 1.5;
+    fragColor = vec4(lightColor, vColor.a);
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\core\light.json
+================================================================================
+{
+  "vertex": "dragonblockultimate:light",
+  "fragment": "dragonblockultimate:light",
+  "attributes": ["Position", "Color"],
+  "uniforms": [
+    {"name": "ModelViewMat", "type": "matrix4x4", "count": 16,
+     "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
+    {"name": "ProjMat", "type": "matrix4x4", "count": 16,
+     "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]}
+  ],
+  "samplers": [],
+  "blend": {
+    "func": "add",
+    "srcrgb": "srcalpha",
+    "dstrgb": "1-srcalpha"
+  },
+  "cull": false
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\core\light.vsh
+================================================================================
+#version 150
+
+in vec3 Position;
+in vec4 Color;
+
+out vec4 vColor;
+
+uniform mat4 ModelViewMat;
+uniform mat4 ProjMat;
+
+void main() {
+    vColor = Color;
+    gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\post\bloom.json
+================================================================================
+{
+  "targets": [
+    "scene",
+    "bloom",
+    "bloom_swap",
+    "bloom1",
+    "bloom1_swap",
+    "bloom2",
+    "bloom2_swap"
+  ],
+  "passes": [
+    {
+      "name": "light_copy",
+      "intarget": "minecraft:main",
+      "outtarget": "scene",
+      "use_linear_filter": true
+    },
+    {
+      "name": "bloom",
+      "intarget": "scene",
+      "outtarget": "bloom",
+      "use_linear_filter": true
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom",
+      "outtarget": "bloom_swap",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [1.0, 0.0]},
+        {"name": "Radius", "values": [6.0]}
+      ]
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom_swap",
+      "outtarget": "bloom",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [0.0, 1.0]},
+        {"name": "Radius", "values": [6.0]}
+      ]
+    },
+    {
+      "name": "light_copy",
+      "intarget": "bloom",
+      "outtarget": "bloom1",
+      "use_linear_filter": true
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom1",
+      "outtarget": "bloom1_swap",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [1.0, 0.0]},
+        {"name": "Radius", "values": [8.0]}
+      ]
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom1_swap",
+      "outtarget": "bloom1",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [0.0, 1.0]},
+        {"name": "Radius", "values": [8.0]}
+      ]
+    },
+    {
+      "name": "light_copy",
+      "intarget": "bloom1",
+      "outtarget": "bloom2",
+      "use_linear_filter": true
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom2",
+      "outtarget": "bloom2_swap",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [1.0, 0.0]},
+        {"name": "Radius", "values": [10.0]}
+      ]
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom2_swap",
+      "outtarget": "bloom2",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [0.0, 1.0]},
+        {"name": "Radius", "values": [10.0]}
+      ]
+    },
+    {
+      "name": "light_composite",
+      "intarget": "scene",
+      "outtarget": "minecraft:main",
+      "use_linear_filter": true,
+      "auxtargets": [
+        {"name": "Bloom0", "id": "bloom", "bilinear": true},
+        {"name": "Bloom1", "id": "bloom1", "bilinear": true},
+        {"name": "Bloom2", "id": "bloom2", "bilinear": true}
+      ]
+    }
+  ]
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\program\bloom.fsh
+================================================================================
+#version 150
+
+uniform sampler2D DiffuseSampler;
+uniform float Threshold;
+uniform float Knee;
+uniform float BloomStrength;
+
+in vec2 texCoord;
+out vec4 fragColor;
+
+void main() {
+    vec4 source = texture(DiffuseSampler, texCoord);
+    float brightness = max(max(source.r, source.g), source.b);
+    float soft = clamp((brightness - Threshold + Knee) / max(Knee, 0.001), 0.0, 1.0);
+    float hard = max(brightness - Threshold, 0.0);
+    float mask = max(soft * soft * 0.5, hard);
+    fragColor = vec4(source.rgb * mask * BloomStrength, source.a * mask);
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\program\bloom.json
+================================================================================
+{
+  "vertex": "minecraft:screenquad",
+  "fragment": "dragonblockultimate:bloom",
+  "attributes": ["Position"],
+  "samplers": [{"name": "DiffuseSampler"}],
+  "uniforms": [
+    {
+      "name": "ProjMat",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
+    },
+    {"name": "OutSize", "type": "float", "count": 2, "values": [1,1]},
+    {"name": "Threshold", "type": "float", "count": 1, "values": [0.68]},
+    {"name": "Knee", "type": "float", "count": 1, "values": [0.16]},
+    {"name": "BloomStrength", "type": "float", "count": 1, "values": [1.35]}
+  ]
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\program\blur.vsh
+================================================================================
+#version 150
+
+in vec4 Position;
+
+uniform mat4 ProjMat;
+uniform vec2 InSize;
+uniform vec2 OutSize;
+uniform vec2 BlurDir;
+
+out vec2 texCoord;
+out vec2 sampleStep;
+
+void main() {
+    vec4 outPos = ProjMat * vec4(Position.xy, 0.0, 1.0);
+    gl_Position = vec4(outPos.xy, 0.2, 1.0);
+    sampleStep = (1.0 / InSize) * BlurDir;
+    texCoord = Position.xy / OutSize;
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\program\light_composite.fsh
+================================================================================
+#version 150
+
+uniform sampler2D DiffuseSampler;
+uniform sampler2D Bloom0;
+uniform sampler2D Bloom1;
+uniform sampler2D Bloom2;
+uniform float BloomStrength;
+
+in vec2 texCoord;
+out vec4 fragColor;
+
+void main() {
+    vec4 scene = texture(DiffuseSampler, texCoord);
+    vec3 bloom = texture(Bloom0, texCoord).rgb * 0.55;
+    bloom += texture(Bloom1, texCoord).rgb * 0.30;
+    bloom += texture(Bloom2, texCoord).rgb * 0.15;
+    fragColor = vec4(scene.rgb + bloom * BloomStrength, scene.a);
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\program\light_composite.json
+================================================================================
+{
+  "vertex": "minecraft:screenquad",
+  "fragment": "dragonblockultimate:light_composite",
+  "attributes": ["Position"],
+  "samplers": [
+    {"name": "DiffuseSampler"},
+    {"name": "Bloom0"},
+    {"name": "Bloom1"},
+    {"name": "Bloom2"}
+  ],
+  "uniforms": [
+    {"name": "ProjMat", "type": "matrix4x4", "count": 16,
+     "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
+    {"name": "OutSize", "type": "float", "count": 2, "values": [1,1]},
+    {"name": "BloomStrength", "type": "float", "count": 1, "values": [0.85]}
+  ]
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\program\light_copy.fsh
+================================================================================
+#version 150
+
+uniform sampler2D DiffuseSampler;
+in vec2 texCoord;
+out vec4 fragColor;
+
+void main() {
+    fragColor = texture(DiffuseSampler, texCoord);
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\program\light_copy.json
+================================================================================
+{
+  "vertex": "minecraft:screenquad",
+  "fragment": "dragonblockultimate:light_copy",
+  "attributes": ["Position"],
+  "samplers": [{"name": "DiffuseSampler"}],
+  "uniforms": [
+    {"name": "ProjMat", "type": "matrix4x4", "count": 16,
+     "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
+    {"name": "OutSize", "type": "float", "count": 2, "values": [1,1]}
+  ]
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\program\light_gaussian.fsh
+================================================================================
+#version 150
+
+uniform sampler2D DiffuseSampler;
+uniform float Radius;
+
+in vec2 texCoord;
+in vec2 sampleStep;
+out vec4 fragColor;
+
+void main() {
+    vec4 result = texture(DiffuseSampler, texCoord) * 0.227027;
+    result += texture(DiffuseSampler, texCoord + sampleStep * 1.384615) * 0.316216;
+    result += texture(DiffuseSampler, texCoord - sampleStep * 1.384615) * 0.316216;
+    result += texture(DiffuseSampler, texCoord + sampleStep * 3.230769) * 0.070270;
+    result += texture(DiffuseSampler, texCoord - sampleStep * 3.230769) * 0.070270;
+    fragColor = result;
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\dragonblockultimate\shaders\program\light_gaussian.json
+================================================================================
+{
+  "vertex": "minecraft:blur",
+  "fragment": "dragonblockultimate:light_gaussian",
+  "attributes": ["Position"],
+  "samplers": [{"name": "DiffuseSampler"}],
+  "uniforms": [
+    {"name": "ProjMat", "type": "matrix4x4", "count": 16,
+     "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
+    {"name": "InSize", "type": "float", "count": 2, "values": [1,1]},
+    {"name": "OutSize", "type": "float", "count": 2, "values": [1,1]},
+    {"name": "BlurDir", "type": "float", "count": 2, "values": [1,0]},
+    {"name": "Radius", "type": "float", "count": 1, "values": [6]}
+  ]
+}
+
+================================================================================
+ARQUIVO: src\main\resources\assets\minecraft\atlases\blocks.json
+================================================================================
+{
+  "replace": false,
+  "sources": [
+    {
+      "type": "minecraft:directory",
+      "source": "block",
+      "prefix": "block/",
+      "namespace": "dragonblockultimate"
+    },
+    {
+      "type": "minecraft:directory",
+      "source": "item",
+      "prefix": "item/",
+      "namespace": "dragonblockultimate"
+    }
+  ]
+}
+
+================================================================================
+ARQUIVO: src\main\resources\data\dragonblockultimate\neoforge\biome_modifier\add_namek_tree.json
+================================================================================
+{
+  "type": "neoforge:add_features",
+  "biomes": "#dragonblockultimate:is_namek",
+  "features": [
+    "dragonblockultimate:namek_tree"
+  ],
+  "step": "vegetal_decoration"
+}
+
+================================================================================
+ARQUIVO: src\main\resources\data\dragonblockultimate\tags\biome\is_namek.json
+================================================================================
+{
+  "values": []
+}
+
+================================================================================
+ARQUIVO: src\main\resources\data\dragonblockultimate\worldgen\biome_modifier\add_namek_tree.json
+================================================================================
+{
+  "type": "neoforge:add_features",
+  "biomes": "#dragonblockultimate:is_namek",
+  "features": [
+    "dragonblockultimate:namek_tree"
+  ],
+  "step": "vegetal_decoration"
+}
+
+================================================================================
+ARQUIVO: src\main\resources\data\dragonblockultimate\worldgen\configured_feature\namek_tree.json
+================================================================================
+{
+  "type": "minecraft:tree",
+  "config": {
+    "trunk_provider": {
+      "type": "minecraft:simple_state_provider",
+      "state": { "Name": "dragonblockultimate:namek_log", "Properties": { "axis": "y" } }
+    },
+    "trunk_placer": {
+      "type": "minecraft:straight_trunk_placer",
+      "base_height": 5,
+      "height_rand_a": 2,
+      "height_rand_b": 0
+    },
+    "foliage_provider": {
+      "type": "minecraft:simple_state_provider",
+      "state": { "Name": "dragonblockultimate:namek_leave", "Properties": { "distance": "7", "persistent": "false", "waterlogged": "false" } }
+    },
+    "foliage_placer": {
+      "type": "minecraft:blob_foliage_placer",
+      "radius": 3,
+      "offset": 0,
+      "height": 3
+    },
+    "minimum_size": {
+      "type": "minecraft:two_layers_feature_size",
+      "limit": 3,
+      "lower_size": 0,
+      "upper_size": 1
+    },
+    "dirt_provider": {
+      "type": "minecraft:simple_state_provider",
+      "state": { "Name": "dragonblockultimate:namek_grass" }
+    },
+    "decorators": [],
+    "ignore_vines": true,
+    "force_dirt": true
+  }
+}
+
+================================================================================
+ARQUIVO: src\main\resources\data\dragonblockultimate\worldgen\placed_feature\namek_tree.json
+================================================================================
+{
+  "feature": "dragonblockultimate:namek_tree",
+  "placement": [
+    {
+      "type": "minecraft:rarity_filter",
+      "chance": 2
+    },
+    {
+      "type": "minecraft:in_square"
+    },
+    {
+      "type": "minecraft:surface_water_depth_filter",
+      "max_water_depth": 0
+    },
+    {
+      "type": "minecraft:heightmap",
+      "heightmap": "OCEAN_FLOOR"
+    },
+    {
+      "type": "minecraft:biome"
+    }
+  ]
+}
+
+================================================================================
+ARQUIVO: src\main\resources\dragonblockultimate.mixins.json
+================================================================================
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.dragonultimate.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "refmap": "dragonblockultimate.refmap.json",
+  "client": [
+    "PlayerSkinMixin"
+  ],
+  "mixins": [],
+  "server": []
+}
+
+================================================================================
+ARQUIVO: src\main\resources\dragonblockultimate.refmap.json
+================================================================================
+{"net.dragonultimate.models.RaceSkin": {"LAYER": "net.dragonultimate.models.RaceSkin$LAYER", "TEXTURE": "net.dragonultimate.models.RaceSkin$TEXTURE"
+}
+}
+
+================================================================================
+ARQUIVO: src\main\resources\META-INF\accesstransformer.cfg
+================================================================================
+# Add your access transformer rules here.
+# Example:
+# public-f net.minecraft.world.entity.player.Player access$foo
+
+================================================================================
+ARQUIVO: src\main\resources\META-INF\neoforge.mods.toml
+================================================================================
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+
+[[mods]]
+    modId="dragonblockultimate"
+    version="0.0.1"
+    displayName="Dragon Block Ultimate"
+    authors="Unknown"
+    description='''
+Dragon Ball Mod
+'''
+
+[[dependencies.dragonblockultimate]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1.234,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.dragonblockultimate]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"
+
+[[mixins]]
+config="dragonblockultimate.mixins.json"
+
+[[accessTransformers]]
+file="META-INF/accesstransformer.cfg"
+
+================================================================================
+ARQUIVO: src\main\resources\pack.mcmeta
+================================================================================
+{
+  "pack": {
+    "description": "Dragon Block Ultimate resources",
+    "pack_format": 48
+  }
+}
+

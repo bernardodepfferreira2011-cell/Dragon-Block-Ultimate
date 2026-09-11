@@ -1,0 +1,17 @@
+{
+  "vertex": "minecraft:screenquad",
+  "fragment": "dragonblockultimate:light_composite",
+  "attributes": ["Position"],
+  "samplers": [
+    {"name": "DiffuseSampler"},
+    {"name": "Bloom0"},
+    {"name": "Bloom1"},
+    {"name": "Bloom2"}
+  ],
+  "uniforms": [
+    {"name": "ProjMat", "type": "matrix4x4", "count": 16,
+     "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]},
+    {"name": "OutSize", "type": "float", "count": 2, "values": [1,1]},
+    {"name": "BloomStrength", "type": "float", "count": 1, "values": [0.85]}
+  ]
+}

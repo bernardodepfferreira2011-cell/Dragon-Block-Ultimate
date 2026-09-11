@@ -1,0 +1,108 @@
+{
+  "targets": [
+    "scene",
+    "bloom",
+    "bloom_swap",
+    "bloom1",
+    "bloom1_swap",
+    "bloom2",
+    "bloom2_swap"
+  ],
+  "passes": [
+    {
+      "name": "light_copy",
+      "intarget": "minecraft:main",
+      "outtarget": "scene",
+      "use_linear_filter": true
+    },
+    {
+      "name": "bloom",
+      "intarget": "scene",
+      "outtarget": "bloom",
+      "use_linear_filter": true
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom",
+      "outtarget": "bloom_swap",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [1.0, 0.0]},
+        {"name": "Radius", "values": [6.0]}
+      ]
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom_swap",
+      "outtarget": "bloom",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [0.0, 1.0]},
+        {"name": "Radius", "values": [6.0]}
+      ]
+    },
+    {
+      "name": "light_copy",
+      "intarget": "bloom",
+      "outtarget": "bloom1",
+      "use_linear_filter": true
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom1",
+      "outtarget": "bloom1_swap",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [1.0, 0.0]},
+        {"name": "Radius", "values": [8.0]}
+      ]
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom1_swap",
+      "outtarget": "bloom1",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [0.0, 1.0]},
+        {"name": "Radius", "values": [8.0]}
+      ]
+    },
+    {
+      "name": "light_copy",
+      "intarget": "bloom1",
+      "outtarget": "bloom2",
+      "use_linear_filter": true
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom2",
+      "outtarget": "bloom2_swap",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [1.0, 0.0]},
+        {"name": "Radius", "values": [10.0]}
+      ]
+    },
+    {
+      "name": "light_gaussian",
+      "intarget": "bloom2_swap",
+      "outtarget": "bloom2",
+      "use_linear_filter": true,
+      "uniforms": [
+        {"name": "BlurDir", "values": [0.0, 1.0]},
+        {"name": "Radius", "values": [10.0]}
+      ]
+    },
+    {
+      "name": "light_composite",
+      "intarget": "scene",
+      "outtarget": "minecraft:main",
+      "use_linear_filter": true,
+      "auxtargets": [
+        {"name": "Bloom0", "id": "bloom", "bilinear": true},
+        {"name": "Bloom1", "id": "bloom1", "bilinear": true},
+        {"name": "Bloom2", "id": "bloom2", "bilinear": true}
+      ]
+    }
+  ]
+}
