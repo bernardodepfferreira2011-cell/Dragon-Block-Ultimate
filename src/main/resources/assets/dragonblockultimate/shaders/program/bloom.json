@@ -11,8 +11,8 @@
       "values": [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
     },
     {"name": "OutSize", "type": "float", "count": 2, "values": [1,1]},
-    {"name": "Threshold", "type": "float", "count": 1, "values": [0.68]},
-    {"name": "Knee", "type": "float", "count": 1, "values": [0.16]},
+    {"name": "Threshold", "type": "float", "count": 1, "values": [0.90]},
+    {"name": "Knee", "type": "float", "count": 1, "values": [0.08]},
     {"name": "BloomStrength", "type": "float", "count": 1, "values": [1.35]}
   ]
 }

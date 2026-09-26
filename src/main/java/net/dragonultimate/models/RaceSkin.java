@@ -23,6 +23,7 @@ public class RaceSkin extends HumanoidModel<Player> {
         DragonBlockUltimate.MOD_ID, "textures/cc/sayan1"
     );
 
+
     public RaceSkin(ModelPart root) {
         super(root);
     }

@@ -7,5 +7,9 @@
   "block.dragonblockultimate.light_dirty": "Light Dirty",
   "item.dragonblockultimate.dino_meat": "Dino Meat",
   "item.dragonblockultimate.dino_meat_cooked": "Cooked Dino Meat",
-  "item.dragonblockultimate.senzu": "Senzu Bean"
+  "item.dragonblockultimate.senzu": "Senzu Bean",
+  "key.categories.dragonblockultimate": "Dragon Block Ultimate",
+  "key.dragonblockultimate.open_caracter_menu": "Character Menu",
+  "key.dragonblockultimate.open_menu": "Main Menu",
+  "key.dragonblockultimate.toggle_aura": "Toggle Ki Aura"
 }
